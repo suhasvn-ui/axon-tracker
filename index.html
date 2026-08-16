@@ -255,6 +255,13 @@
                 <button id="add-subcategory" class="px-2.5 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs transition-colors w-full" type="button">+ Sub</button>
               </div>
             </form>
+            <!-- NEW: Manage Existing Categories List -->
+            <div class="mt-4 pt-3 border-t border-slate-100">
+              <h4 class="text-[0.7rem] font-bold text-slate-500 mb-2 uppercase tracking-wide">Manage Existing (Delete)</h4>
+              <div id="category-manage-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <!-- Dynamically populated via JS -->
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -332,7 +339,7 @@
       </div>
 
       <!-- Compact Top KPI Grid -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
         <div class="card col-span-2 bg-gradient-to-br from-slate-800 to-slate-900 text-white border-0 shadow-sm p-3">
           <h4 class="font-medium text-slate-300 text-[0.7rem] mb-2 uppercase tracking-wide">Est. Budget vs. Actual Spend</h4>
           <div class="flex items-center justify-between gap-2">
@@ -363,6 +370,12 @@
             <div id="contingency-bar" class="h-2 rounded-full transition-all duration-700" style="width:0%; background:linear-gradient(90deg,var(--teal-2),#ef4444)"></div>
           </div>
           <div class="text-[0.65rem] font-semibold text-slate-600" id="contingency-text"></div>
+        </div>
+        <!-- NEW: Total Cash Inflow Card -->
+        <div class="card flex flex-col justify-center p-3 border border-teal-200 bg-teal-50/50">
+          <h4 class="font-semibold text-teal-700 text-[0.65rem] mb-0.5 uppercase tracking-wide">Total Cash Inflow</h4>
+          <div class="text-base sm:text-xl font-bold text-teal-800" id="kpi-inflow">₹0</div>
+          <div class="text-[0.625rem] text-teal-600 font-medium">From Clients</div>
         </div>
       </div>
 
@@ -721,7 +734,7 @@
     function escapeHtml(s) { if (!s) return ''; return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
 
     // Category Selects
-    function populateCategorySelects() {
+function populateCategorySelects() {
       const catSelects = [$('category'), $('parent-category'), $('filterCategory')].filter(Boolean);
       catSelects.forEach(s => {
         s.innerHTML = '';
@@ -733,6 +746,9 @@
         });
       });
       updateSubCategoryOptions();
+      
+      // NEW: Update the visual list for deleting categories
+      renderCategoryManager();
     }
 
     function updateSubCategoryOptions() {
@@ -743,7 +759,93 @@
       const found = categories.find(c => c.name === cat);
       if (found) found.subs.forEach(sname => { const opt = document.createElement('option'); opt.value = sname; opt.textContent = sname; sub.appendChild(opt); });
     }
+    // --- Render the Category Manager List ---
+function renderCategoryManager() {
+  const container = document.getElementById('category-manage-list');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  // Uses your categories array (fallback to defaultCategories if not loaded yet)
+  const activeCategories = typeof categories !== 'undefined' ? categories : defaultCategories;
 
+  activeCategories.forEach((cat, catIdx) => {
+    const catDiv = document.createElement('div');
+    catDiv.className = 'bg-slate-50 border border-slate-200 rounded p-2';
+    
+    // Category Header
+    const header = document.createElement('div');
+    header.className = 'flex justify-between items-center mb-1.5';
+    header.innerHTML = `
+      <span class="font-semibold text-slate-700 text-xs">${cat.name}</span>
+      <button type="button" class="del-cat-btn text-red-500 hover:text-red-700 font-bold text-[0.7rem]" data-idx="${catIdx}">✕ Delete</button>
+    `;
+    catDiv.appendChild(header);
+
+    // Sub-Categories
+    const subsDiv = document.createElement('div');
+    subsDiv.className = 'flex flex-wrap gap-1.5 ml-2';
+    (cat.subs || []).forEach((sub, subIdx) => {
+      const subBadge = document.createElement('span');
+      subBadge.className = 'inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[0.65rem]';
+      subBadge.innerHTML = `
+        ${sub}
+        <button type="button" class="del-sub-btn text-red-400 hover:text-red-600 font-bold ml-1" data-cat="${catIdx}" data-sub="${subIdx}">✕</button>
+      `;
+      subsDiv.appendChild(subBadge);
+    });
+    
+    catDiv.appendChild(subsDiv);
+    container.appendChild(catDiv);
+  });
+}
+
+// --- Handle Deletion Clicks ---
+document.getElementById('category-manage-list')?.addEventListener('click', (e) => {
+  const activeCategories = typeof categories !== 'undefined' ? categories : defaultCategories;
+  const activeExpenses = typeof expenses !== 'undefined' ? expenses : mockTransactions;
+
+  // Delete Category
+  if (e.target.classList.contains('del-cat-btn')) {
+    const idx = e.target.dataset.idx;
+    const catName = activeCategories[idx].name;
+    
+    // Safety check: Prevent deletion if used
+    if (activeExpenses.some(ex => ex.category === catName)) {
+      return alert(`Cannot delete: "${catName}" is currently used in your expenses.`);
+    }
+    
+    if (confirm(`Are you sure you want to delete the category "${catName}"?`)) {
+      activeCategories.splice(idx, 1);
+      renderCategoryManager();
+      
+      // IMPORTANT: Call your existing UI update/save functions here
+      if (typeof populateCategorySelects === 'function') populateCategorySelects();
+      if (typeof saveState === 'function') saveState();
+    }
+  } 
+  
+  // Delete Sub-Category
+  else if (e.target.classList.contains('del-sub-btn')) {
+    const catIdx = e.target.dataset.cat;
+    const subIdx = e.target.dataset.sub;
+    const catName = activeCategories[catIdx].name;
+    const subName = activeCategories[catIdx].subs[subIdx];
+    
+    // Safety check: Prevent deletion if used
+    if (activeExpenses.some(ex => ex.category === catName && ex.subCategory === subName)) {
+      return alert(`Cannot delete: "${subName}" is currently used in your expenses.`);
+    }
+    
+    if (confirm(`Are you sure you want to delete the sub-category "${subName}"?`)) {
+      activeCategories[catIdx].subs.splice(subIdx, 1);
+      renderCategoryManager();
+      
+      // IMPORTANT: Call your existing UI update/save functions here
+      if (typeof populateCategorySelects === 'function') populateCategorySelects();
+      if (typeof saveState === 'function') saveState();
+    }
+  }
+});
     // Ledger Rendering & Sorting
     const ledgerBody = $('ledger-body');
     const txCount = $('tx-count');
@@ -862,6 +964,67 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // --- NEW: Render Category Manager List & Handle Deletions ---
+    function renderCategoryManager() {
+      const container = $('category-manage-list');
+      if (!container) return;
+      container.innerHTML = '';
+      
+      categories.forEach((cat, catIdx) => {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'bg-slate-50 border border-slate-200 rounded p-2';
+        
+        const header = document.createElement('div');
+        header.className = 'flex justify-between items-center mb-1.5';
+        header.innerHTML = `
+          <span class="font-semibold text-slate-700 text-xs">${escapeHtml(cat.name)}</span>
+          <button class="del-cat-btn text-red-500 hover:text-red-700 font-bold text-[0.7rem]" data-idx="${catIdx}">✕ Delete</button>
+        `;
+        catDiv.appendChild(header);
+
+        const subsDiv = document.createElement('div');
+        subsDiv.className = 'flex flex-wrap gap-1.5 ml-2';
+        cat.subs.forEach((sub, subIdx) => {
+          const subBadge = document.createElement('span');
+          subBadge.className = 'inline-flex items-center gap-1 bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[0.65rem]';
+          subBadge.innerHTML = `
+            ${escapeHtml(sub)}
+            <button class="del-sub-btn text-red-400 hover:text-red-600 font-bold ml-1" data-cat="${catIdx}" data-sub="${subIdx}">✕</button>
+          `;
+          subsDiv.appendChild(subBadge);
+        });
+        catDiv.appendChild(subsDiv);
+        container.appendChild(catDiv);
+      });
+    }
+
+    $('category-manage-list')?.addEventListener('click', (e) => {
+      if (e.target.classList.contains('del-cat-btn')) {
+        const idx = e.target.dataset.idx;
+        const catName = categories[idx].name;
+        // Safety check: Don't allow delete if used in an expense
+        if (expenses.some(ex => ex.category === catName)) return alert(`Cannot delete: "${catName}" is currently used in your expenses.`);
+        
+        if (confirm(`Are you sure you want to delete the category "${catName}"?`)) {
+          categories.splice(idx, 1);
+          saveState(); populateCategorySelects();
+        }
+      } 
+      else if (e.target.classList.contains('del-sub-btn')) {
+        const catIdx = e.target.dataset.cat;
+        const subIdx = e.target.dataset.sub;
+        const catName = categories[catIdx].name;
+        const subName = categories[catIdx].subs[subIdx];
+        // Safety check: Don't allow delete if used in an expense
+        if (expenses.some(ex => ex.category === catName && ex.subCategory === subName)) return alert(`Cannot delete: "${subName}" is currently used in your expenses.`);
+        
+        if (confirm(`Are you sure you want to delete the sub-category "${subName}"?`)) {
+          categories[catIdx].subs.splice(subIdx, 1);
+          saveState(); populateCategorySelects();
+        }
+      }
+    });
+    
     // Category Management Handlers
     $('add-category')?.addEventListener('click', (e) => {
       e.preventDefault();
@@ -1093,10 +1256,25 @@
       return Number(tx.actual || 0) * rate;
     }
 
-    function renderDashboard() {
+function renderDashboard() {
       const totalEstimated = expenses.reduce((s,e) => s + Number(e.estimated || 0), 0);
       const totalActual = expenses.reduce((s,e) => s + Number(e.actual || 0), 0);
       const variance = totalEstimated - totalActual;
+
+      // Calculate and update the Total Cash Inflow from Client Receipts
+function updateCashInflowKPI() {
+  // Replace 'receipts' with your actual array variable name if it differs
+  const totalInflow = (typeof receipts !== 'undefined' ? receipts : []).reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  
+  const inflowElement = document.getElementById('kpi-inflow');
+  if (inflowElement) {
+    inflowElement.textContent = formatINR(totalInflow);
+  }
+}
+  
+      // NEW: Calculate and display Total Cash Inflow
+      const totalInflow = receipts.reduce((s, r) => s + Number(r.amount || 0), 0);
+      if ($('kpi-inflow')) $('kpi-inflow').textContent = formatINR(totalInflow);
       if ($('kpi-estimated')) $('kpi-estimated').textContent = formatINR(totalEstimated);
       if ($('kpi-actual')) $('kpi-actual').textContent = formatINR(totalActual);
       if ($('kpi-variance')) {
@@ -1116,7 +1294,7 @@
       const pendingCommitted = expenses.filter(e => e.status !== 'Paid').reduce((s,e) => s + Number(e.actual || 0), 0);
       if ($('kpi-cash-out')) $('kpi-cash-out').textContent = formatINR(cashOut);
       if ($('kpi-pending')) $('kpi-pending').textContent = formatINR(pendingCommitted);
-
+  
       const totalGST = expenses.reduce((s,e) => s + computeGSTForTx(e), 0);
       if ($('kpi-gst')) $('kpi-gst').textContent = formatINR(totalGST);
 
