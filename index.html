@@ -226,6 +226,17 @@
               </div>
             </div>
 
+            <!-- Expense Image Attachment Field -->
+            <div>
+              <label>Attachment / Image</label>
+              <input id="expense-image-file" type="file" accept="image/*" class="w-full text-xs" />
+              <input type="hidden" id="expense-image-data" />
+              <div id="image-preview-container" class="mt-2 hidden flex items-center gap-2">
+                <img id="image-preview" src="" class="h-12 w-12 object-cover rounded border border-slate-300 shadow-sm" alt="Preview" />
+                <button type="button" id="remove-image-btn" class="text-[0.65rem] text-red-600 hover:text-red-800 underline font-medium">Remove Image</button>
+              </div>
+            </div>
+
             <div class="flex gap-2 pt-1.5">
               <button type="submit" class="px-3.5 py-1.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-sm transition-colors">Save Expense</button>
               <button type="button" id="reset-form" class="px-3.5 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors">Reset</button>
@@ -255,6 +266,12 @@
                 <button id="add-subcategory" class="px-2.5 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs transition-colors w-full" type="button">+ Sub</button>
               </div>
             </form>
+
+            <!-- Categories & Sub-Categories List with Delete Options -->
+            <div class="mt-4 pt-3 border-t border-slate-100">
+              <h4 class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">Manage & Delete Categories</h4>
+              <div id="categories-tree-container" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -316,6 +333,7 @@
                 <th class="cursor-pointer hover:bg-slate-100" data-sort="paymentMode">Mode</th>
                 <th class="cursor-pointer hover:bg-slate-100" data-sort="status">Status</th>
                 <th>GST Invoice</th>
+                <th>Image</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -331,8 +349,17 @@
         <h2 class="text-base sm:text-lg font-bold text-slate-800">Project Dashboard</h2>
       </div>
 
-      <!-- Compact Top KPI Grid -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+      <!-- Compact Top KPI Grid (Updated with Total Cash Inflow) -->
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
+        <div class="card flex flex-col justify-center p-3 bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-0 shadow-sm col-span-2 sm:col-span-1">
+          <h4 class="font-medium text-emerald-100 text-[0.7rem] mb-1 uppercase tracking-wide">Total Cash Inflow</h4>
+          <div class="text-lg sm:text-2xl font-bold tracking-tight text-white" id="kpi-cash-inflow">₹0</div>
+          <div class="text-[0.625rem] text-emerald-100 mt-1 flex items-center justify-between">
+            <span>From Client Receipts</span>
+            <span id="kpi-net-balance" class="font-semibold"></span>
+          </div>
+        </div>
+
         <div class="card col-span-2 bg-gradient-to-br from-slate-800 to-slate-900 text-white border-0 shadow-sm p-3">
           <h4 class="font-medium text-slate-300 text-[0.7rem] mb-2 uppercase tracking-wide">Est. Budget vs. Actual Spend</h4>
           <div class="flex items-center justify-between gap-2">
@@ -576,11 +603,24 @@
 
   </main>
 
+  <!-- EXPENSE IMAGE LIGHTBOX MODAL -->
+  <div id="image-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-2xl w-full p-4 relative shadow-2xl max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center pb-2.5 border-b border-slate-100">
+        <h3 class="font-bold text-slate-800 text-sm">Expense Image Attachment</h3>
+        <button id="close-image-modal" type="button" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-sm transition-colors">&times;</button>
+      </div>
+      <div class="mt-3 flex-1 overflow-auto flex items-center justify-center bg-slate-50 rounded-lg p-2 border border-slate-200">
+        <img id="modal-image-display" src="" class="max-h-[70vh] max-w-full object-contain rounded" alt="Expense Image" />
+      </div>
+    </div>
+  </div>
+
   <!-- JAVASCRIPT APP CORE -->
   <script>
     // Supabase Credentials & Client Initialization
     const SUPABASE_URL = 'https://ukvoqdmxhnfmiscjqppb.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdm9xZG14aG5mbWlzY2pxcHBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzY5MzgsImV4cCI6MjEwMTk1MjkzOH0.UWCz137lqh9Q0ovcYXVMsKg87agtuxArxPClR5N_1a4';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdm9xZG14aG5mbWlzYcjqcHBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzY5MzgsImV4cCI6MjEwMTk1MjkzOH0.UWCz137lqh9Q0ovcYXVMsKg87agtuxArxPClR5N_1a4';
 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -625,21 +665,21 @@
     ];
 
     const mockTransactions = [
-      { id: uid(), date: '2026-01-05', description: 'BBMP plan sanction fee', category: 'Pre-Construction', subCategory: 'BBMP Plan Sanction', vendor: 'BBMP Office', estimated: 50000, actual: 50000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-001', status: 'Paid' },
-      { id: uid(), date: '2026-01-10', description: 'BESCOM electrical deposit', category: 'Pre-Construction', subCategory: 'BESCOM Deposit', vendor: 'BESCOM', estimated: 30000, actual: 30000, paymentMode: 'Cheque', gstInvoice: '', status: 'Paid' },
-      { id: uid(), date: '2026-01-12', description: 'BWSSB water connection deposit', category: 'Pre-Construction', subCategory: 'BWSSB Deposit', vendor: 'BWSSB', estimated: 25000, actual: 25000, paymentMode: 'Bank Transfer', gstInvoice: '', status: 'Paid' },
-      { id: uid(), date: '2026-02-02', description: 'Structural engineer consultancy', category: 'Pre-Construction', subCategory: 'Structural Engineer Fees', vendor: 'Suresh Engineers', estimated: 60000, actual: 60000, paymentMode: 'UPI', gstInvoice: 'GST-INV-002', status: 'Paid' },
-      { id: uid(), date: '2026-02-15', description: 'M-Sand delivery for foundation', category: 'Structural', subCategory: 'M-Sand', vendor: 'M-Sand Suppliers', estimated: 120000, actual: 125000, paymentMode: 'Cash', gstInvoice: 'GST-INV-003', status: 'Paid' },
-      { id: uid(), date: '2026-02-20', description: 'Cement bags for foundation', category: 'Structural', subCategory: 'Cement', vendor: 'UltraCem Distributors', estimated: 80000, actual: 78000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-004', status: 'Paid' },
-      { id: uid(), date: '2026-03-05', description: 'TMT bars delivery', category: 'Structural', subCategory: 'TMT Bars', vendor: 'TMT Traders', estimated: 150000, actual: 160000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-005', status: 'Paid' },
-      { id: uid(), date: '2026-03-18', description: 'Foundation excavation (contractor)', category: 'Structural', subCategory: 'Foundation Excavation', vendor: 'Ramesh Contractors', estimated: 90000, actual: 90000, paymentMode: 'UPI', gstInvoice: '', status: 'Partial' },
-      { id: uid(), date: '2026-04-02', description: 'Daily wage coolie payments', category: 'Labor', subCategory: 'Daily Wage Coolie', vendor: 'Site Cash', estimated: 20000, actual: 20000, paymentMode: 'Cash', gstInvoice: '', status: 'Paid' },
-      { id: uid(), date: '2026-04-10', description: 'Maistry payments for brickwork', category: 'Labor', subCategory: 'Maistry Payments', vendor: 'Maistry Group', estimated: 40000, actual: 42000, paymentMode: 'UPI', gstInvoice: '', status: 'Paid' },
-      { id: uid(), date: '2026-05-05', description: 'Bricks purchase', category: 'Structural', subCategory: 'Bricks/Blocks', vendor: 'Brick House', estimated: 60000, actual: 58000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-006', status: 'Paid' },
-      { id: uid(), date: '2026-05-20', description: 'Flooring tiles (ground floor)', category: 'Finishing', subCategory: 'Flooring (Tiles)', vendor: 'Tile World', estimated: 70000, actual: 75000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-007', status: 'Pending' },
-      { id: uid(), date: '2026-06-01', description: 'Granite for kitchen platform', category: 'Finishing', subCategory: 'Granite', vendor: 'Granite Mart', estimated: 45000, actual: 45000, paymentMode: 'UPI', gstInvoice: 'GST-INV-008', status: 'Paid' },
-      { id: uid(), date: '2026-06-12', description: 'Modular kitchen advance', category: 'Finishing', subCategory: 'Modular Kitchen', vendor: 'KitchenPro', estimated: 120000, actual: 60000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-009', status: 'Partial' },
-      { id: uid(), date: '2026-06-20', description: 'Sanitary ware purchase', category: 'Finishing', subCategory: 'Sanitary Ware', vendor: 'Sanitary Hub', estimated: 30000, actual: 30000, paymentMode: 'Cash', gstInvoice: '', status: 'Paid' }
+      { id: uid(), date: '2026-01-05', description: 'BBMP plan sanction fee', category: 'Pre-Construction', subCategory: 'BBMP Plan Sanction', vendor: 'BBMP Office', estimated: 50000, actual: 50000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-001', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-01-10', description: 'BESCOM electrical deposit', category: 'Pre-Construction', subCategory: 'BESCOM Deposit', vendor: 'BESCOM', estimated: 30000, actual: 30000, paymentMode: 'Cheque', gstInvoice: '', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-01-12', description: 'BWSSB water connection deposit', category: 'Pre-Construction', subCategory: 'BWSSB Deposit', vendor: 'BWSSB', estimated: 25000, actual: 25000, paymentMode: 'Bank Transfer', gstInvoice: '', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-02-02', description: 'Structural engineer consultancy', category: 'Pre-Construction', subCategory: 'Structural Engineer Fees', vendor: 'Suresh Engineers', estimated: 60000, actual: 60000, paymentMode: 'UPI', gstInvoice: 'GST-INV-002', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-02-15', description: 'M-Sand delivery for foundation', category: 'Structural', subCategory: 'M-Sand', vendor: 'M-Sand Suppliers', estimated: 120000, actual: 125000, paymentMode: 'Cash', gstInvoice: 'GST-INV-003', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-02-20', description: 'Cement bags for foundation', category: 'Structural', subCategory: 'Cement', vendor: 'UltraCem Distributors', estimated: 80000, actual: 78000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-004', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-03-05', description: 'TMT bars delivery', category: 'Structural', subCategory: 'TMT Bars', vendor: 'TMT Traders', estimated: 150000, actual: 160000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-005', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-03-18', description: 'Foundation excavation (contractor)', category: 'Structural', subCategory: 'Foundation Excavation', vendor: 'Ramesh Contractors', estimated: 90000, actual: 90000, paymentMode: 'UPI', gstInvoice: '', status: 'Partial', image: '' },
+      { id: uid(), date: '2026-04-02', description: 'Daily wage coolie payments', category: 'Labor', subCategory: 'Daily Wage Coolie', vendor: 'Site Cash', estimated: 20000, actual: 20000, paymentMode: 'Cash', gstInvoice: '', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-04-10', description: 'Maistry payments for brickwork', category: 'Labor', subCategory: 'Maistry Payments', vendor: 'Maistry Group', estimated: 40000, actual: 42000, paymentMode: 'UPI', gstInvoice: '', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-05-05', description: 'Bricks purchase', category: 'Structural', subCategory: 'Bricks/Blocks', vendor: 'Brick House', estimated: 60000, actual: 58000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-006', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-05-20', description: 'Flooring tiles (ground floor)', category: 'Finishing', subCategory: 'Flooring (Tiles)', vendor: 'Tile World', estimated: 70000, actual: 75000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-007', status: 'Pending', image: '' },
+      { id: uid(), date: '2026-06-01', description: 'Granite for kitchen platform', category: 'Finishing', subCategory: 'Granite', vendor: 'Granite Mart', estimated: 45000, actual: 45000, paymentMode: 'UPI', gstInvoice: 'GST-INV-008', status: 'Paid', image: '' },
+      { id: uid(), date: '2026-06-12', description: 'Modular kitchen advance', category: 'Finishing', subCategory: 'Modular Kitchen', vendor: 'KitchenPro', estimated: 120000, actual: 60000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-009', status: 'Partial', image: '' },
+      { id: uid(), date: '2026-06-20', description: 'Sanitary ware purchase', category: 'Finishing', subCategory: 'Sanitary Ware', vendor: 'Sanitary Hub', estimated: 30000, actual: 30000, paymentMode: 'Cash', gstInvoice: '', status: 'Paid', image: '' }
     ];
 
     // App state
@@ -720,7 +760,7 @@
 
     function escapeHtml(s) { if (!s) return ''; return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
 
-    // Category Selects
+    // Category Selects & Tree Display
     function populateCategorySelects() {
       const catSelects = [$('category'), $('parent-category'), $('filterCategory')].filter(Boolean);
       catSelects.forEach(s => {
@@ -733,6 +773,7 @@
         });
       });
       updateSubCategoryOptions();
+      renderCategoryTree();
     }
 
     function updateSubCategoryOptions() {
@@ -743,6 +784,70 @@
       const found = categories.find(c => c.name === cat);
       if (found) found.subs.forEach(sname => { const opt = document.createElement('option'); opt.value = sname; opt.textContent = sname; sub.appendChild(opt); });
     }
+
+    function renderCategoryTree() {
+      const container = $('categories-tree-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (categories.length === 0) {
+        container.innerHTML = '<div class="text-slate-400 text-xs italic">No categories available.</div>';
+        return;
+      }
+
+      categories.forEach((cat, catIdx) => {
+        const catEl = document.createElement('div');
+        catEl.className = 'bg-slate-50 border border-slate-200 rounded-md p-2 text-xs';
+
+        let subsHTML = '';
+        if (cat.subs && cat.subs.length > 0) {
+          subsHTML = '<div class="mt-1.5 pl-2 space-y-1 border-l-2 border-slate-200">' + 
+            cat.subs.map((sub, subIdx) => `
+              <div class="flex items-center justify-between text-[0.725rem] text-slate-600">
+                <span>• ${escapeHtml(sub)}</span>
+                <button type="button" class="del-sub-btn text-red-500 hover:text-red-700 hover:underline text-[0.65rem] font-medium" data-cat-idx="${catIdx}" data-sub-idx="${subIdx}">Delete</button>
+              </div>
+            `).join('') +
+            '</div>';
+        } else {
+          subsHTML = '<div class="mt-1 pl-2 text-[0.65rem] text-slate-400 italic">No sub-categories</div>';
+        }
+
+        catEl.innerHTML = `
+          <div class="flex items-center justify-between font-semibold text-slate-700">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+              ${escapeHtml(cat.name)}
+            </span>
+            <button type="button" class="del-cat-btn px-1.5 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-[0.65rem] font-medium transition-colors" data-cat-idx="${catIdx}">Delete Category</button>
+          </div>
+          ${subsHTML}
+        `;
+
+        container.appendChild(catEl);
+      });
+    }
+
+    $('categories-tree-container')?.addEventListener('click', (e) => {
+      if (e.target.classList.contains('del-cat-btn')) {
+        const catIdx = parseInt(e.target.dataset.catIdx, 10);
+        const catName = categories[catIdx]?.name;
+        if (catName && confirm(`Delete category "${catName}" and all its sub-categories?`)) {
+          categories.splice(catIdx, 1);
+          saveState();
+          populateCategorySelects();
+        }
+      } else if (e.target.classList.contains('del-sub-btn')) {
+        const catIdx = parseInt(e.target.dataset.catIdx, 10);
+        const subIdx = parseInt(e.target.dataset.subIdx, 10);
+        const subName = categories[catIdx]?.subs[subIdx];
+        if (subName && confirm(`Delete sub-category "${subName}" from "${categories[catIdx].name}"?`)) {
+          categories[catIdx].subs.splice(subIdx, 1);
+          saveState();
+          populateCategorySelects();
+        }
+      }
+    });
 
     // Ledger Rendering & Sorting
     const ledgerBody = $('ledger-body');
@@ -783,6 +888,10 @@
         else if(tx.status === 'Partial') statusBadge = '<span class="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[0.65rem] font-medium">Partial</span>';
         else statusBadge = '<span class="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-[0.65rem] font-medium">Pending</span>';
 
+        const imageBtn = tx.image 
+          ? `<button type="button" data-img="${escapeHtml(tx.image)}" class="view-img-btn px-1.5 py-0.5 rounded bg-teal-50 hover:bg-teal-100 text-teal-700 text-[0.65rem] border border-teal-200 font-medium inline-flex items-center gap-1 transition-colors">📷 View</button>` 
+          : '<span class="text-slate-400 text-[0.65rem]">—</span>';
+
         tr.innerHTML = `
           <td>${tx.date}</td>
           <td class="font-medium text-slate-700">${escapeHtml(tx.description)}</td>
@@ -795,6 +904,7 @@
           <td class="text-slate-500">${escapeHtml(tx.paymentMode)}</td>
           <td>${statusBadge}</td>
           <td class="text-slate-500 text-[0.65rem]">${escapeHtml(tx.gstInvoice || '--')}</td>
+          <td>${imageBtn}</td>
           <td>
             <button data-id="${tx.id}" class="edit-btn px-2 py-0.5 rounded bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium text-[0.65rem] border border-yellow-200" type="button">Edit</button>
             <button data-id="${tx.id}" class="del-btn px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 font-medium text-[0.65rem] border border-red-200 ml-1" type="button">Del</button>
@@ -817,6 +927,36 @@
       });
     });
 
+    // Image File Processing
+    $('expense-image-file')?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          $('expense-image-data').value = ev.target.result;
+          $('image-preview').src = ev.target.result;
+          $('image-preview-container').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    $('remove-image-btn')?.addEventListener('click', () => {
+      if ($('expense-image-file')) $('expense-image-file').value = '';
+      if ($('expense-image-data')) $('expense-image-data').value = '';
+      if ($('image-preview-container')) $('image-preview-container').classList.add('hidden');
+      if ($('image-preview')) $('image-preview').src = '';
+    });
+
+    function resetExpenseForm() {
+      $('expense-form').reset();
+      $('expense-id').value = '';
+      if ($('expense-image-data')) $('expense-image-data').value = '';
+      if ($('image-preview-container')) $('image-preview-container').classList.add('hidden');
+      if ($('image-preview')) $('image-preview').src = '';
+      updateSubCategoryOptions();
+    }
+
     // Expense Form Handlers
     $('expense-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -832,16 +972,17 @@
         actual: Number($('actual').value || 0),
         paymentMode: $('paymentMode').value,
         gstInvoice: $('gstInvoice').value,
-        status: $('status').value
+        status: $('status').value,
+        image: $('expense-image-data')?.value || ''
       };
       if (id) {
         const idx = expenses.findIndex(x => x.id === id);
         if (idx >= 0) expenses[idx] = tx;
       } else expenses.push(tx);
-      saveState(); renderLedger(); $('expense-form').reset(); $('expense-id').value = ''; updateSubCategoryOptions();
+      saveState(); renderLedger(); resetExpenseForm();
     });
 
-    $('reset-form')?.addEventListener('click', () => { $('expense-form').reset(); $('expense-id').value = ''; updateSubCategoryOptions(); });
+    $('reset-form')?.addEventListener('click', () => resetExpenseForm());
 
     ledgerBody?.addEventListener('click', (e) => {
       if (e.target.classList.contains('edit-btn')) {
@@ -849,6 +990,10 @@
       } else if (e.target.classList.contains('del-btn')) {
         const id = e.target.dataset.id;
         if (confirm('Delete this expense?')) { expenses = expenses.filter(x => x.id !== id); saveState(); renderLedger(); }
+      } else if (e.target.closest('.view-img-btn')) {
+        const btn = e.target.closest('.view-img-btn');
+        const imgSrc = btn.dataset.img;
+        if (imgSrc) showImageModal(imgSrc);
       }
     });
 
@@ -859,8 +1004,29 @@
       $('category').value = tx.category; updateSubCategoryOptions(); $('subCategory').value = tx.subCategory;
       $('vendor').value = tx.vendor; $('estimated').value = tx.estimated; $('actual').value = tx.actual;
       $('paymentMode').value = tx.paymentMode; $('gstInvoice').value = tx.gstInvoice; $('status').value = tx.status;
+      
+      if ($('expense-image-data')) $('expense-image-data').value = tx.image || '';
+      if (tx.image) {
+        if ($('image-preview')) $('image-preview').src = tx.image;
+        if ($('image-preview-container')) $('image-preview-container').classList.remove('hidden');
+      } else {
+        if ($('image-preview-container')) $('image-preview-container').classList.add('hidden');
+      }
+
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
+    // Modal Image Lightbox Handlers
+    function showImageModal(src) {
+      const modal = $('image-modal');
+      const modalImg = $('modal-image-display');
+      if (modal && modalImg) {
+        modalImg.src = src;
+        modal.classList.remove('hidden');
+      }
+    }
+    $('close-image-modal')?.addEventListener('click', () => $('image-modal')?.classList.add('hidden'));
+    $('image-modal')?.addEventListener('click', (e) => { if (e.target === $('image-modal')) $('image-modal')?.classList.add('hidden'); });
 
     // Category Management Handlers
     $('add-category')?.addEventListener('click', (e) => {
@@ -1027,7 +1193,7 @@
     }
 
     $('btn-export-csv')?.addEventListener('click', () => {
-      const expHeaders = ['id','date','description','category','subCategory','vendor','estimated','actual','paymentMode','status','gstInvoice'];
+      const expHeaders = ['id','date','description','category','subCategory','vendor','estimated','actual','paymentMode','status','gstInvoice','image'];
       const expCSV = toCSV(expenses, expHeaders);
       const recHeaders = ['id','date','client','amount','mode','ref','notes'];
       const recCSV = toCSV(receipts, recHeaders);
@@ -1094,9 +1260,17 @@
     }
 
     function renderDashboard() {
+      // Cash Inflow KPI Calculation
+      const totalInflow = receipts.reduce((s, r) => s + Number(r.amount || 0), 0);
+      if ($('kpi-cash-inflow')) $('kpi-cash-inflow').textContent = formatINR(totalInflow);
+
       const totalEstimated = expenses.reduce((s,e) => s + Number(e.estimated || 0), 0);
       const totalActual = expenses.reduce((s,e) => s + Number(e.actual || 0), 0);
       const variance = totalEstimated - totalActual;
+
+      const netBalance = totalInflow - totalActual;
+      if ($('kpi-net-balance')) $('kpi-net-balance').textContent = `Net: ${formatINR(netBalance)}`;
+
       if ($('kpi-estimated')) $('kpi-estimated').textContent = formatINR(totalEstimated);
       if ($('kpi-actual')) $('kpi-actual').textContent = formatINR(totalActual);
       if ($('kpi-variance')) {
