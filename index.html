@@ -7,7 +7,7 @@
 
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-
+  
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -18,7 +18,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
   <style>
     :root { 
       --teal-1: #0d9488; 
@@ -1434,53 +1433,5 @@
     window.addEventListener('beforeunload', () => saveState());
   </script>
   
-    // Initialize Supabase Client
-  const SUPABASE_URL = 'https://ukvoqdmxhnfmiscjqppb.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdm9xZG14aG5mbWlzY2pxcHBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzY5MzgsImV4cCI6MjEwMTk1MjkzOH0.UWCz137lqh9Q0ovcYXVMsKg87agtuxArxPClR5N_1a4';
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  
-  // 1. Fetch the latest data when the page loads
-  async function loadInitialData() {
-    const { data, error } = await supabaseClient
-      .from('dashboard_data')
-      .select('*')
-      .eq('id', 1)
-      .single();
-  
-    if (data) {
-      updateUI(data.content);
-    }
-  }
-  
-  // 2. Function to save changes to Supabase (Call this when a user edits something)
-  async function saveChanges(newContent) {
-    const { error } = await supabaseClient
-      .from('dashboard_data')
-      .upsert({ id: 1, content: newContent });
-  
-    if (error) console.error('Error saving data:', error);
-  }
-  
-  // 3. Subscribe to real-time changes made by other users
-  supabaseClient
-    .channel('public:dashboard_data')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'dashboard_data' },
-      (payload) => {
-        // Automatically update the screen when another user saves data
-        updateUI(payload.new.content);
-      }
-    )
-    .subscribe();
-  
-  // Helper function to update elements on your webpage
-  function updateUI(content) {
-    // Add your logic to update DOM elements here
-    console.log('Live update received:', content);
-  }
-  
-  // Initial load
-  loadInitialData();
 </body>
 </html>
