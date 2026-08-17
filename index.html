@@ -3,1446 +3,604 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Axon Constructions — Expense & Cashflow Tracker</title>
+  <title>Axon Constructions - Expense & Cashflow Tracker</title>
 
-  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root { 
-      --teal-1: #0d9488; 
-      --teal-2: #14b8a6; 
-    }
-    
-    body { 
-      background: #f8fafc; 
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: #334155;
-      font-size: 0.8125rem; /* 13px baseline for clean mobile readability */
-      line-height: 1.4;
-      -webkit-tap-highlight-color: transparent;
-    }
 
-    /* Custom Mobile-Friendly Scrollbar */
+  <style>
+    :root { --teal-1: #0d9488; --teal-2: #14b8a6; }
+    body { background: #f8fafc; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: #334155; font-size: .8125rem; line-height: 1.4; -webkit-tap-highlight-color: transparent; }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-    /* Top Navigation Compact Buttons */
-    .tab-active { 
-      background: linear-gradient(90deg, var(--teal-2), var(--teal-1)) !important; 
-      color: white !important; 
-      box-shadow: 0 2px 6px rgba(20, 184, 166, 0.25);
-      font-weight: 600;
-    }
-    button.nav-btn { 
-      padding: 0.3rem 0.55rem; 
-      font-size: 0.725rem; 
-      border-radius: 0.375rem; 
-      transition: all 0.15s ease; 
-      cursor: pointer;
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    button.nav-btn:hover:not(.tab-active) {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    /* Card & Container Compact Styling */
-    .card { 
-      background: white; 
-      border-radius: 0.75rem; 
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02); 
-      padding: 0.875rem; 
-      border: 1px solid #e2e8f0;
-    }
-    @media (min-width: 640px) {
-      .card { padding: 1.125rem; }
-    }
-
-    /* Compact Table Styles */
-    .table-wrap { overflow-x: auto; border-radius: 0.5rem; border: 1px solid #f1f5f9; }
-    th { text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.65rem; font-weight: 600; color: #64748b; padding: 0.5rem 0.625rem !important; }
-    td { padding: 0.45rem 0.625rem !important; font-size: 0.75rem; }
-    tbody tr { transition: background-color 0.15s ease; border-bottom: 1px solid #f8fafc; }
+    .tab-active { background: linear-gradient(90deg, var(--teal-2), var(--teal-1)) !important; color: white !important; box-shadow: 0 2px 6px rgba(20,184,166,.25); font-weight: 600; }
+    button.nav-btn { padding: .3rem .55rem; font-size: .725rem; border-radius: .375rem; transition: all .15s ease; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; }
+    button.nav-btn:hover:not(.tab-active) { background: rgba(255,255,255,.15); }
+    .card { background: white; border-radius: .75rem; box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.02); padding: .875rem; border: 1px solid #e2e8f0; }
+    @media (min-width: 640px) { .card { padding: 1.125rem; } }
+    .table-wrap { overflow-x: auto; border-radius: .5rem; border: 1px solid #f1f5f9; }
+    th { text-transform: uppercase; letter-spacing: .04em; font-size: .65rem; font-weight: 600; color: #64748b; padding: .5rem .625rem !important; }
+    td { padding: .45rem .625rem !important; font-size: .75rem; }
+    tbody tr { transition: background-color .15s ease; border-bottom: 1px solid #f8fafc; }
     tbody tr:hover { background-color: #f1f5f9; }
-    
-    /* Variances & Badges */
-    .variance-positive { color: #047857; background: #d1fae5; padding: 0.05rem 0.35rem; border-radius: 0.2rem; display: inline-block; font-weight: 600; }
-    .variance-negative { color: #b91c1c; background: #fee2e2; padding: 0.05rem 0.35rem; border-radius: 0.2rem; display: inline-block; font-weight: 600; }
-
-    /* Mobile Optimized Inputs & Selects */
-    input, select {
-      transition: all 0.15s ease;
-      outline: none;
-      border: 1px solid #cbd5e1;
-      font-size: 0.775rem !important;
-      padding: 0.4rem 0.6rem !important;
-      border-radius: 0.375rem !important;
-      background-color: #ffffff;
-    }
-    input:focus, select:focus {
-      border-color: var(--teal-2);
-      box-shadow: 0 0 0 2.5px rgba(20, 184, 166, 0.15);
-    }
-    label {
-      font-size: 0.725rem !important;
-      font-weight: 500;
-      color: #475569;
-      margin-bottom: 0.2rem !important;
-      display: block;
-    }
+    .variance-positive { color: #047857; background: #d1fae5; padding: .05rem .35rem; border-radius: .2rem; display: inline-block; font-weight: 600; }
+    .variance-negative { color: #b91c1c; background: #fee2e2; padding: .05rem .35rem; border-radius: .2rem; display: inline-block; font-weight: 600; }
+    input, select { transition: all .15s ease; outline: none; border: 1px solid #cbd5e1; font-size: .775rem !important; padding: .4rem .6rem !important; border-radius: .375rem !important; background-color: #fff; }
+    input:focus, select:focus { border-color: var(--teal-2); box-shadow: 0 0 0 2.5px rgba(20,184,166,.15); }
+    label { font-size: .725rem !important; font-weight: 500; color: #475569; margin-bottom: .2rem !important; display: block; }
   </style>
 </head>
-
 <body class="min-h-screen flex flex-col antialiased">
-
-  <!-- COMPACT HEADER & TOP NAVIGATION -->
   <header class="bg-slate-900 text-slate-100 shadow sticky top-0 z-50 border-b border-slate-800">
     <div class="max-w-7xl mx-auto px-2.5 py-1.5 flex flex-col gap-1.5">
-      
-      <!-- Top Row: Logo & Export Toolbar -->
       <div class="flex items-center justify-between gap-2 flex-wrap">
-        <!-- Brand Logo & Title -->
         <div class="flex items-center gap-2">
           <div class="w-6 h-6 rounded-md bg-gradient-to-tr from-teal-400 to-teal-600 flex items-center justify-center text-xs font-bold text-white shadow-sm">Ax</div>
           <div>
             <div class="text-xs font-bold tracking-tight text-white leading-none">Axon Builds</div>
-            <div class="text-[0.6rem] text-slate-400 leading-none mt-0.5">Prem Kumar • Bengaluru</div>
+            <div class="text-[0.6rem] text-slate-400 leading-none mt-0.5">Expense & Cashflow Tracker</div>
           </div>
         </div>
-
-        <!-- Export Actions -->
         <div class="flex items-center gap-1.5 text-[0.7rem] flex-wrap">
-          <div class="flex items-center gap-1">
-            <button id="btn-export" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">JSON</button>
-            <button id="btn-export-csv" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">CSV</button>
-            <button id="btn-import" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">Import</button>
-            <input id="file-import" type="file" accept="application/json" class="hidden" />
-          </div>
+          <button id="btn-export" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">JSON</button>
+          <button id="btn-export-csv" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">CSV</button>
+          <button id="btn-import" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">Import</button>
+          <input id="file-import" type="file" accept="application/json" class="hidden" />
         </div>
       </div>
-
-      <!-- Navigation Tabs Bar -->
-      <nav id="main-nav" class="flex items-center gap-1 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar" aria-label="Main navigation">
-        <button id="tab-transactions" class="nav-btn tab-active" data-tab="transactions" type="button">Expense Form</button>
-        <button id="tab-ledger" class="nav-btn" data-tab="ledger" type="button">Master Ledger & Filters</button>
-        <button id="tab-dashboard" class="nav-btn" data-tab="dashboard" type="button">Dashboard KPIs</button>
-        <button id="tab-cashflow" class="nav-btn" data-tab="cashflow" type="button">Cashflow & Allocations</button>
+      <nav id="main-nav" class="flex items-center gap-1 overflow-x-auto pb-0.5 pt-0.5" aria-label="Main navigation">
+        <button class="nav-btn tab-active" data-tab="transactions" type="button">Expense Form</button>
+        <button class="nav-btn" data-tab="ledger" type="button">Master Ledger & Filters</button>
+        <button class="nav-btn" data-tab="dashboard" type="button">Dashboard KPIs</button>
+        <button class="nav-btn" data-tab="cashflow" type="button">Cashflow & Allocations</button>
       </nav>
-
     </div>
   </header>
 
-  <!-- MAIN CONTENT CONTAINER -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-4 md:p-5 overflow-x-hidden">
-
-    <!-- EXPENSE MANAGEMENT PANEL -->
     <section id="panel-transactions" class="panel">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-base sm:text-lg font-bold text-slate-800">Expense & Category Setup</h2>
-      </div>
-      
+      <div class="flex items-center justify-between mb-3"><h2 class="text-base sm:text-lg font-bold text-slate-800">Expense & Category Setup</h2></div>
       <div class="grid xl:grid-cols-2 gap-3.5 sm:gap-5">
-        <!-- Expense Form -->
         <div class="card">
           <h3 class="text-sm font-bold text-slate-800 mb-2.5 border-b border-slate-100 pb-1.5">Add / Edit Expense</h3>
           <form id="expense-form" class="space-y-2.5" autocomplete="off">
             <input type="hidden" id="expense-id" />
             <div class="grid grid-cols-2 gap-2.5">
-              <div>
-                <label>Date</label>
-                <input id="date" type="date" class="w-full" required />
-              </div>
-              <div>
-                <label>Payment Status</label>
-                <select id="status" class="w-full">
-                  <option>Paid</option>
-                  <option>Partial</option>
-                  <option>Pending</option>
-                </select>
-              </div>
+              <div><label>Date</label><input id="date" type="date" class="w-full" required /></div>
+              <div><label>Payment Status</label><select id="status" class="w-full"><option>Paid</option><option>Partial</option><option>Pending</option></select></div>
             </div>
-
-            <div>
-              <label>Description</label>
-              <input id="description" type="text" class="w-full" placeholder="e.g., Foundation cement purchase" required />
-            </div>
-
+            <div><label>Description</label><input id="description" type="text" class="w-full" placeholder="e.g., Foundation cement purchase" required /></div>
             <div class="grid grid-cols-2 gap-2.5">
-              <div>
-                <label>Category</label>
-                <select id="category" class="w-full"></select>
-              </div>
-              <div>
-                <label>Sub-Category</label>
-                <select id="subCategory" class="w-full"></select>
-              </div>
+              <div><label>Category</label><select id="category" class="w-full"></select></div>
+              <div><label>Sub-Category</label><select id="subCategory" class="w-full"></select></div>
             </div>
-
-            <div>
-              <label>Vendor / Contractor</label>
-              <input id="vendor" type="text" class="w-full" placeholder="e.g., Ramesh Constructions" />
-            </div>
-
+            <div><label>Vendor / Contractor</label><input id="vendor" type="text" class="w-full" placeholder="e.g., Ramesh Constructions" /></div>
             <div class="grid grid-cols-2 gap-2.5">
-              <div>
-                <label>Estimated Cost (₹)</label>
-                <input id="estimated" type="number" min="0" step="0.01" class="w-full" placeholder="0.00" />
-              </div>
-              <div>
-                <label>Actual Cost Paid (₹)</label>
-                <input id="actual" type="number" min="0" step="0.01" class="w-full" placeholder="0.00" />
-              </div>
+              <div><label>Estimated Cost (INR)</label><input id="estimated" type="number" min="0" step="0.01" class="w-full" placeholder="0.00" /></div>
+              <div><label>Actual Cost Paid (INR)</label><input id="actual" type="number" min="0" step="0.01" class="w-full" placeholder="0.00" /></div>
             </div>
-            
             <div class="grid grid-cols-2 gap-2.5">
-              <div>
-                <label>Units</label>
-                <input id="units" type="number" min="0" step="0.01" class="w-full" placeholder="Optional" />
-              </div>
-              <div>
-                <label>Per Unit Cost (₹)</label>
-                <input id="perUnitCost" type="number" min="0" step="0.01" class="w-full" placeholder="Optional" />
-              </div>
+              <div><label>Units</label><input id="units" type="number" min="0" step="0.01" class="w-full" placeholder="Optional" /></div>
+              <div><label>Per Unit Cost (INR)</label><input id="perUnitCost" type="number" min="0" step="0.01" class="w-full" placeholder="Optional" /></div>
             </div>
-            
             <div class="grid grid-cols-2 gap-2.5">
-              <div>
-                <label>Payment Mode</label>
-                <select id="paymentMode" class="w-full">
-                  <option>UPI</option>
-                  <option>Cash</option>
-                  <option>Bank Transfer</option>
-                  <option>Cheque</option>
-                </select>
-              </div>
-              <div>
-                <label>GST Invoice No.</label>
-                <input id="gstInvoice" type="text" class="w-full" placeholder="e.g., GSTIN-001" />
-              </div>
+              <div><label>Payment Mode</label><select id="paymentMode" class="w-full"><option>UPI</option><option>Cash</option><option>Bank Transfer</option><option>Cheque</option></select></div>
+              <div><label>GST Invoice No.</label><input id="gstInvoice" type="text" class="w-full" placeholder="e.g., GSTIN-001" /></div>
             </div>
-
-            <!-- Expense Image Attachment Field -->
             <div>
               <label>Attachment / Image</label>
               <input id="expense-image-file" type="file" accept="image/*" class="w-full text-xs" />
               <input type="hidden" id="expense-image-data" />
-              <div id="image-preview-container" class="mt-2 hidden flex items-center gap-2">
-                <img id="image-preview" src="" class="h-12 w-12 object-cover rounded border border-slate-300 shadow-sm" alt="Preview" />
-                <button type="button" id="remove-image-btn" class="text-[0.65rem] text-red-600 hover:text-red-800 underline font-medium">Remove Image</button>
-              </div>
+              <div id="image-preview-container" class="mt-2 hidden flex items-center gap-2"><img id="image-preview" src="" class="h-12 w-12 object-cover rounded border border-slate-300 shadow-sm" alt="Preview" /><button type="button" id="remove-image-btn" class="text-[0.65rem] text-red-600 hover:text-red-800 underline font-medium">Remove Image</button></div>
             </div>
-
-            <div class="flex gap-2 pt-1.5">
-              <button type="submit" class="px-3.5 py-1.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-sm transition-colors">Save Expense</button>
-              <button type="button" id="reset-form" class="px-3.5 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors">Reset</button>
-            </div>
+            <div class="flex gap-2 pt-1.5"><button type="submit" class="px-3.5 py-1.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-sm transition-colors">Save Expense</button><button type="button" id="reset-form" class="px-3.5 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors">Reset</button></div>
           </form>
         </div>
-
-        <!-- Category Management -->
         <div class="space-y-3.5">
           <div class="card">
             <h3 class="text-sm font-bold text-slate-800 mb-2.5 border-b border-slate-100 pb-1.5">Category Management</h3>
             <form id="category-form" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" onsubmit="return false;">
-              <div>
-                <label>New Category</label>
-                <input id="new-category" type="text" class="w-full" placeholder="e.g., Structural" />
-              </div>
-              <div>
-                <label>Parent (for Sub-Cat)</label>
-                <select id="parent-category" class="w-full"></select>
-              </div>
-              <div>
-                <label>New Sub-Category</label>
-                <input id="new-subcategory" type="text" class="w-full" placeholder="e.g., TMT Bars" />
-              </div>
-              <div class="flex items-end gap-1.5">
-                <button id="add-category" class="px-2.5 py-1.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-medium text-xs transition-colors w-full" type="button">+ Cat</button>
-                <button id="add-subcategory" class="px-2.5 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs transition-colors w-full" type="button">+ Sub</button>
-              </div>
+              <div><label>New Category</label><input id="new-category" type="text" class="w-full" placeholder="e.g., Structural" /></div>
+              <div><label>Parent (for Sub-Cat)</label><select id="parent-category" class="w-full"></select></div>
+              <div><label>New Sub-Category</label><input id="new-subcategory" type="text" class="w-full" placeholder="e.g., TMT Bars" /></div>
+              <div class="flex items-end gap-1.5"><button id="add-category" class="px-2.5 py-1.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-medium text-xs transition-colors w-full" type="button">+ Cat</button><button id="add-subcategory" class="px-2.5 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs transition-colors w-full" type="button">+ Sub</button></div>
             </form>
-
-            <!-- Categories & Sub-Categories List with Delete Options -->
-            <div class="mt-4 pt-3 border-t border-slate-100">
-              <h4 class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">Manage & Delete Categories</h4>
-              <div id="categories-tree-container" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
-            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100"><h4 class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">Manage & Delete Categories</h4><div id="categories-tree-container" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div></div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- MASTER LEDGER & FILTERS PANEL -->
-    <section id="panel-ledger" class="panel hidden" style="display: none;">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-base sm:text-lg font-bold text-slate-800">Master Ledger & Record Filters</h2>
-      </div>
-
-      <!-- Compact Filters & Search -->
+    <section id="panel-ledger" class="panel hidden" style="display:none;">
+      <div class="flex items-center justify-between mb-3"><h2 class="text-base sm:text-lg font-bold text-slate-800">Master Ledger & Record Filters</h2></div>
       <div class="card bg-slate-50 border-dashed border border-slate-300 shadow-none mb-3.5">
         <h3 class="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">Search & Filter Records</h3>
         <div class="grid grid-cols-1 gap-2">
           <input id="searchText" type="text" placeholder="Search description, vendor, invoice..." class="w-full bg-white" />
-          <div class="grid grid-cols-3 gap-1.5">
-            <select id="filterCategory" class="bg-white"></select>
-            <select id="filterStatus" class="bg-white">
-              <option value="">All Statuses</option>
-              <option>Paid</option>
-              <option>Partial</option>
-              <option>Pending</option>
-            </select>
-            <select id="filterMode" class="bg-white">
-              <option value="">All Modes</option>
-              <option>UPI</option>
-              <option>Cash</option>
-              <option>Bank Transfer</option>
-              <option>Cheque</option>
-            </select>
-          </div>
-          <div class="flex gap-2 pt-0.5">
-            <button id="applyFilters" class="px-3 py-1 rounded-md bg-slate-700 hover:bg-slate-800 text-white font-medium text-xs transition-colors" type="button">Apply Filters</button>
-            <button id="clearFilters" class="px-3 py-1 rounded-md bg-white border border-slate-300 hover:bg-slate-100 font-medium text-xs transition-colors" type="button">Clear</button>
-          </div>
+          <div class="grid grid-cols-3 gap-1.5"><select id="filterCategory" class="bg-white"></select><select id="filterStatus" class="bg-white"><option value="">All Statuses</option><option>Paid</option><option>Partial</option><option>Pending</option></select><select id="filterMode" class="bg-white"><option value="">All Modes</option><option>UPI</option><option>Cash</option><option>Bank Transfer</option><option>Cheque</option></select></div>
+          <div class="flex gap-2 pt-0.5"><button id="applyFilters" class="px-3 py-1 rounded-md bg-slate-700 hover:bg-slate-800 text-white font-medium text-xs transition-colors" type="button">Apply Filters</button><button id="clearFilters" class="px-3 py-1 rounded-md bg-white border border-slate-300 hover:bg-slate-100 font-medium text-xs transition-colors" type="button">Clear</button></div>
         </div>
       </div>
-
-      <!-- Ledger Table -->
       <div class="card p-0 overflow-hidden border-0 shadow-sm">
-        <div class="p-3 border-b border-slate-100 flex items-center justify-between gap-2">
-          <h3 class="text-sm font-bold text-slate-800">Transactions</h3>
-          <div class="text-[0.68rem] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-semibold">Total: <span id="tx-count">0</span></div>
-        </div>
-
-        <div class="table-wrap m-2 sm:m-3 mt-0">
-          <table id="ledger" class="min-w-full text-left w-full whitespace-nowrap">
-            <thead class="bg-slate-50">
-              <tr>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="date">Date ▲</th>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="description">Description</th>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="category">Category</th>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="subCategory">Sub-Cat</th>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="vendor">Vendor</th>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="estimated">Est. (₹)</th>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="actual">Act. (₹)</th>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="variance">Variance</th>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="paymentMode">Mode</th>
-                <th class="cursor-pointer hover:bg-slate-100" data-sort="status">Status</th>
-                <th>GST Invoice</th>
-                <th>Image</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="ledger-body"></tbody>
-          </table>
-        </div>
+        <div class="p-3 border-b border-slate-100 flex items-center justify-between gap-2"><h3 class="text-sm font-bold text-slate-800">Transactions</h3><div class="text-[0.68rem] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-semibold">Total: <span id="tx-count">0</span></div></div>
+        <div class="table-wrap m-2 sm:m-3 mt-0"><table id="ledger" class="min-w-full text-left w-full whitespace-nowrap"><thead class="bg-slate-50"><tr><th class="cursor-pointer hover:bg-slate-100" data-sort="date">Date</th><th class="cursor-pointer hover:bg-slate-100" data-sort="description">Description</th><th class="cursor-pointer hover:bg-slate-100" data-sort="category">Category</th><th class="cursor-pointer hover:bg-slate-100" data-sort="subCategory">Sub-Cat</th><th class="cursor-pointer hover:bg-slate-100" data-sort="vendor">Vendor</th><th class="cursor-pointer hover:bg-slate-100" data-sort="estimated">Est. (INR)</th><th class="cursor-pointer hover:bg-slate-100" data-sort="actual">Act. (INR)</th><th class="cursor-pointer hover:bg-slate-100" data-sort="units">Units</th><th class="cursor-pointer hover:bg-slate-100" data-sort="perUnitCost">Per Unit</th><th class="cursor-pointer hover:bg-slate-100" data-sort="variance">Variance</th><th class="cursor-pointer hover:bg-slate-100" data-sort="paymentMode">Mode</th><th class="cursor-pointer hover:bg-slate-100" data-sort="status">Status</th><th>GST Invoice</th><th>Image</th><th>Actions</th></tr></thead><tbody id="ledger-body"></tbody></table></div>
       </div>
     </section>
 
-    <!-- DASHBOARD PANEL -->
-    <section id="panel-dashboard" class="panel hidden" style="display: none;">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-base sm:text-lg font-bold text-slate-800">Project Dashboard</h2>
+    <section id="panel-dashboard" class="panel hidden" style="display:none;">
+      <div class="flex items-center justify-between mb-3"><h2 class="text-base sm:text-lg font-bold text-slate-800">Project Dashboard</h2></div>
+      <div class="card mb-3.5 bg-slate-50 border-dashed shadow-none">
+        <div class="flex items-center justify-between gap-2 mb-2"><h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Customize Dashboard</h3><button id="reset-dashboard-prefs" type="button" class="px-2 py-1 rounded bg-white border border-slate-300 text-[0.7rem] hover:bg-slate-100">Reset</button></div>
+        <div id="dashboard-customizer" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-[0.72rem]"></div>
       </div>
-
-      <!-- Compact Top KPI Grid (Updated with Total Cash Inflow) -->
       <div class="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
-        <div class="card flex flex-col justify-center p-3 bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-0 shadow-sm col-span-2 sm:col-span-1">
-          <h4 class="font-medium text-emerald-100 text-[0.7rem] mb-1 uppercase tracking-wide">Total Cash Inflow</h4>
-          <div class="text-lg sm:text-2xl font-bold tracking-tight text-white" id="kpi-cash-inflow">₹0</div>
-          <div class="text-[0.625rem] text-emerald-100 mt-1 flex items-center justify-between">
-            <span>From Client Receipts</span>
-            <span id="kpi-net-balance" class="font-semibold"></span>
-          </div>
-        </div>
-
-        <div class="card col-span-2 bg-gradient-to-br from-slate-800 to-slate-900 text-white border-0 shadow-sm p-3">
-          <h4 class="font-medium text-slate-300 text-[0.7rem] mb-2 uppercase tracking-wide">Est. Budget vs. Actual Spend</h4>
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <div class="text-lg sm:text-2xl font-bold text-white tracking-tight" id="kpi-estimated">₹0</div>
-              <div class="text-[0.625rem] text-slate-400 uppercase font-medium">Estimated</div>
-            </div>
-            <div class="text-slate-600 text-xl font-light">|</div>
-            <div>
-              <div class="text-lg sm:text-2xl font-bold text-teal-400 tracking-tight" id="kpi-actual">₹0</div>
-              <div class="text-[0.625rem] text-slate-400 uppercase font-medium">Actual Spent</div>
-            </div>
-          </div>
-          <div class="mt-2 pt-2 border-t border-white/10">
-            <div id="kpi-variance" class="text-xs font-semibold"></div>
-          </div>
-        </div>
-
-        <div class="card flex flex-col justify-center p-3">
-          <h4 class="font-semibold text-slate-500 text-[0.65rem] mb-0.5 uppercase tracking-wide">Realized Spend</h4>
-          <div class="text-base sm:text-xl font-bold text-slate-800" id="kpi-spent">₹0</div>
-          <div class="text-[0.625rem] text-slate-400 font-medium">Total out door</div>
-        </div>
-
-        <div class="card flex flex-col justify-center p-3">
-          <h4 class="font-semibold text-slate-500 text-[0.65rem] mb-1 uppercase tracking-wide">Contingency Fund (10%)</h4>
-          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-1">
-            <div id="contingency-bar" class="h-2 rounded-full transition-all duration-700" style="width:0%; background:linear-gradient(90deg,var(--teal-2),#ef4444)"></div>
-          </div>
-          <div class="text-[0.65rem] font-semibold text-slate-600" id="contingency-text"></div>
-        </div>
+        <div data-dashboard-widget="cash-inflow" class="card flex flex-col justify-center p-3 bg-gradient-to-br from-emerald-600 to-teal-700 text-white border-0 shadow-sm col-span-2 sm:col-span-1"><h4 class="font-medium text-emerald-100 text-[0.7rem] mb-1 uppercase tracking-wide">Total Cash Inflow</h4><div class="text-lg sm:text-2xl font-bold tracking-tight text-white" id="kpi-cash-inflow">INR 0</div><div class="text-[0.625rem] text-emerald-100 mt-1 flex items-center justify-between"><span>From Client Receipts</span><span id="kpi-net-balance" class="font-semibold"></span></div></div>
+        <div data-dashboard-widget="budget-summary" class="card col-span-2 bg-gradient-to-br from-slate-800 to-slate-900 text-white border-0 shadow-sm p-3"><h4 class="font-medium text-slate-300 text-[0.7rem] mb-2 uppercase tracking-wide">Est. Budget vs. Actual Spend</h4><div class="flex items-center justify-between gap-2"><div><div class="text-lg sm:text-2xl font-bold text-white tracking-tight" id="kpi-estimated">INR 0</div><div class="text-[0.625rem] text-slate-400 uppercase font-medium">Estimated</div></div><div class="text-slate-600 text-xl font-light">|</div><div><div class="text-lg sm:text-2xl font-bold text-teal-400 tracking-tight" id="kpi-actual">INR 0</div><div class="text-[0.625rem] text-slate-400 uppercase font-medium">Actual Spent</div></div></div><div class="mt-2 pt-2 border-t border-white/10"><div id="kpi-variance" class="text-xs font-semibold"></div></div></div>
+        <div data-dashboard-widget="realized-spend" class="card flex flex-col justify-center p-3"><h4 class="font-semibold text-slate-500 text-[0.65rem] mb-0.5 uppercase tracking-wide">Realized Spend</h4><div class="text-base sm:text-xl font-bold text-slate-800" id="kpi-spent">INR 0</div><div class="text-[0.625rem] text-slate-400 font-medium">Total paid out</div></div>
+        <div data-dashboard-widget="contingency" class="card flex flex-col justify-center p-3"><h4 class="font-semibold text-slate-500 text-[0.65rem] mb-1 uppercase tracking-wide">Contingency Fund (10%)</h4><div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-1"><div id="contingency-bar" class="h-2 rounded-full transition-all duration-700" style="width:0%; background:linear-gradient(90deg,var(--teal-2),#ef4444)"></div></div><div class="text-[0.65rem] font-semibold text-slate-600" id="contingency-text"></div></div>
       </div>
-
-      <!-- Secondary Metric Cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 mt-2.5">
-        <div class="card p-2.5">
-          <h4 class="font-semibold text-slate-500 text-[0.65rem] uppercase tracking-wide">Total Cash Out</h4>
-          <div class="text-sm sm:text-base font-bold text-slate-800 mt-0.5" id="kpi-cash-out">₹0</div>
-        </div>
-        <div class="card p-2.5 border-orange-200 bg-orange-50/20">
-          <h4 class="font-semibold text-orange-600 text-[0.65rem] uppercase tracking-wide">Pending Committed</h4>
-          <div class="text-sm sm:text-base font-bold text-orange-600 mt-0.5" id="kpi-pending">₹0</div>
-        </div>
-        <div class="card p-2.5">
-          <h4 class="font-semibold text-slate-500 text-[0.65rem] uppercase tracking-wide">GST Configured</h4>
-          <div class="text-sm sm:text-base font-bold text-slate-800 mt-0.5" id="kpi-gst">₹0</div>
-        </div>
-        <div class="card p-2.5">
-          <h4 class="font-semibold text-slate-500 text-[0.65rem] uppercase tracking-wide">Cost / Sq Ft</h4>
-          <div class="text-sm sm:text-base font-bold text-teal-600 mt-0.5" id="kpi-cost-per-sqft">₹0</div>
-        </div>
-        <div class="card p-2.5 col-span-2 sm:col-span-1">
-          <h4 class="font-semibold text-slate-500 text-[0.65rem] uppercase tracking-wide">Invoice Capture</h4>
-          <div class="text-sm sm:text-base font-bold text-indigo-600 mt-0.5" id="kpi-invoice-rate">0%</div>
-        </div>
+      <div data-dashboard-widget="secondary-kpis" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 mt-2.5">
+        <div class="card p-2.5"><h4 class="font-semibold text-slate-500 text-[0.65rem] uppercase tracking-wide">Total Cash Out</h4><div class="text-sm sm:text-base font-bold text-slate-800 mt-0.5" id="kpi-cash-out">INR 0</div></div>
+        <div class="card p-2.5 border-orange-200 bg-orange-50/20"><h4 class="font-semibold text-orange-600 text-[0.65rem] uppercase tracking-wide">Pending Committed</h4><div class="text-sm sm:text-base font-bold text-orange-600 mt-0.5" id="kpi-pending">INR 0</div></div>
+        <div class="card p-2.5"><h4 class="font-semibold text-slate-500 text-[0.65rem] uppercase tracking-wide">GST Configured</h4><div class="text-sm sm:text-base font-bold text-slate-800 mt-0.5" id="kpi-gst">INR 0</div></div>
+        <div class="card p-2.5"><h4 class="font-semibold text-slate-500 text-[0.65rem] uppercase tracking-wide">Cost / Sq Ft</h4><div class="text-sm sm:text-base font-bold text-teal-600 mt-0.5" id="kpi-cost-per-sqft">INR 0</div></div>
+        <div class="card p-2.5 col-span-2 sm:col-span-1"><h4 class="font-semibold text-slate-500 text-[0.65rem] uppercase tracking-wide">Invoice Capture</h4><div class="text-sm sm:text-base font-bold text-indigo-600 mt-0.5" id="kpi-invoice-rate">0%</div></div>
       </div>
-
-      <!-- Chart Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3.5 mt-3.5">
-        <div class="card lg:col-span-2">
-          <h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Statutory Costs</h4>
-          <div class="relative h-44"><canvas id="chart-statutory"></canvas></div>
-        </div>
-
-        <div class="card lg:col-span-2">
-          <h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Structural & Civil Works</h4>
-          <div class="relative h-44"><canvas id="chart-structural"></canvas></div>
-        </div>
-
-        <div class="card lg:col-span-2">
-          <h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Finishing & Interior</h4>
-          <div class="relative h-44"><canvas id="chart-finishing"></canvas></div>
-        </div>
-
-        <div class="card lg:col-span-3">
-          <h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Daily Wage vs Contractor</h4>
-          <div class="relative h-48 flex justify-center"><canvas id="chart-labor"></canvas></div>
-        </div>
-
-        <div class="card lg:col-span-3">
-          <h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Top 5 Vendors / Contractors</h4>
-          <div class="relative h-48"><canvas id="chart-vendors"></canvas></div>
-        </div>
-
-        <div class="card lg:col-span-3">
-          <h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Material Procurement Variance</h4>
-          <div class="relative h-48"><canvas id="chart-material-variance"></canvas></div>
-        </div>
-
-        <div class="card lg:col-span-3">
-          <h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Category Burn Rate</h4>
-          <div id="burn-bars" class="space-y-2 mt-1"></div>
-        </div>
-
-        <div class="card lg:col-span-2">
-          <h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Payment Mode Distribution</h4>
-          <div class="relative h-44 flex justify-center"><canvas id="chart-payment-mode"></canvas></div>
-        </div>
-
-        <div class="card lg:col-span-4">
-          <h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Monthly Spend Trend</h4>
-          <div class="relative h-44"><canvas id="chart-monthly-trend"></canvas></div>
-        </div>
+      <div data-dashboard-widget="charts" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3.5 mt-3.5">
+        <div class="card lg:col-span-2"><h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Statutory Costs</h4><div class="relative h-44"><canvas id="chart-statutory"></canvas></div></div>
+        <div class="card lg:col-span-2"><h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Structural & Civil Works</h4><div class="relative h-44"><canvas id="chart-structural"></canvas></div></div>
+        <div class="card lg:col-span-2"><h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Finishing & Interior</h4><div class="relative h-44"><canvas id="chart-finishing"></canvas></div></div>
+        <div class="card lg:col-span-3"><h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Daily Wage vs Contractor</h4><div class="relative h-48 flex justify-center"><canvas id="chart-labor"></canvas></div></div>
+        <div class="card lg:col-span-3"><h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Top 5 Vendors / Contractors</h4><div class="relative h-48"><canvas id="chart-vendors"></canvas></div></div>
+        <div class="card lg:col-span-3"><h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Material Procurement Variance</h4><div class="relative h-48"><canvas id="chart-material-variance"></canvas></div></div>
+        <div class="card lg:col-span-3"><h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Category Burn Rate</h4><div id="burn-bars" class="space-y-2 mt-1"></div></div>
+        <div class="card lg:col-span-2"><h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Payment Mode Distribution</h4><div class="relative h-44 flex justify-center"><canvas id="chart-payment-mode"></canvas></div></div>
+        <div class="card lg:col-span-4"><h4 class="font-bold text-slate-700 text-xs mb-2 border-b border-slate-100 pb-1">Monthly Spend Trend</h4><div class="relative h-44"><canvas id="chart-monthly-trend"></canvas></div></div>
       </div>
     </section>
 
-    <!-- CASHFLOW & ALLOCATIONS PANEL -->
-    <section id="panel-cashflow" class="panel hidden" style="display: none;">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-base sm:text-lg font-bold text-slate-800">Cashflow & Allocations</h2>
-      </div>
-
+    <section id="panel-cashflow" class="panel hidden" style="display:none;">
+      <div class="flex items-center justify-between mb-3"><h2 class="text-base sm:text-lg font-bold text-slate-800">Cashflow & Allocations</h2></div>
       <div class="grid md:grid-cols-2 gap-3.5 sm:gap-5">
-        <!-- Client Receipts Form -->
-        <div class="card">
-          <h3 class="text-sm font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">Client Receipts (Add / Edit)</h3>
-          <form id="receipt-form" class="space-y-2.5" autocomplete="off">
-            <input type="hidden" id="receipt-id" />
-            <div class="grid grid-cols-2 gap-2.5">
-              <div>
-                <label>Date</label>
-                <input id="receipt-date" type="date" class="w-full" required />
-              </div>
-              <div>
-                <label>Mode</label>
-                <select id="receipt-mode" class="w-full">
-                  <option>Bank Transfer</option>
-                  <option>UPI</option>
-                  <option>Cheque</option>
-                  <option>Cash</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label>Client Name / Source</label>
-              <input id="receipt-client" type="text" class="w-full" placeholder="e.g., Mr. Rao" />
-            </div>
-
-            <div class="grid grid-cols-2 gap-2.5">
-              <div>
-                <label>Amount (₹)</label>
-                <input id="receipt-amount" type="number" min="0" step="0.01" class="w-full" placeholder="0.00" />
-              </div>
-              <div>
-                <label>Ref / Invoice</label>
-                <input id="receipt-ref" type="text" class="w-full" placeholder="e.g., Receipt-001" />
-              </div>
-            </div>
-
-            <div>
-              <label>Notes</label>
-              <input id="receipt-notes" type="text" class="w-full" placeholder="e.g., Advance payment" />
-            </div>
-
-            <div class="flex gap-2 pt-1">
-              <button type="submit" class="px-3.5 py-1.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-sm transition-colors">Save Receipt</button>
-              <button type="button" id="reset-receipt" class="px-3.5 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors">Reset</button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Budget Allocation Form -->
-        <div class="card border-t-2 border-indigo-500">
-          <h3 class="text-sm font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">Allocate Budget to Team</h3>
-          <form id="allocation-form" class="space-y-2.5" autocomplete="off">
-            <input type="hidden" id="alloc-id" />
-            <div>
-              <label>Source Receipt</label>
-              <select id="alloc-receipt" class="w-full"></select>
-            </div>
-            <div>
-              <label>Team Member</label>
-              <input id="alloc-member" type="text" class="w-full" placeholder="e.g., Site Supervisor" />
-            </div>
-            <div class="grid grid-cols-2 gap-2.5">
-              <div>
-                <label>Amount (₹)</label>
-                <input id="alloc-amount" type="number" min="0" step="0.01" class="w-full" placeholder="0.00" />
-              </div>
-              <div>
-                <label>Purpose</label>
-                <input id="alloc-purpose" type="text" class="w-full" placeholder="e.g., Purchase cement" />
-              </div>
-            </div>
-            <div class="flex gap-2 pt-1">
-              <button type="submit" class="px-3.5 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm transition-colors">Allocate</button>
-              <button type="button" id="reset-alloc" class="px-3.5 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors">Reset</button>
-            </div>
-          </form>
-        </div>
+        <div class="card"><h3 class="text-sm font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">Client Receipts (Add / Edit)</h3><form id="receipt-form" class="space-y-2.5" autocomplete="off"><input type="hidden" id="receipt-id" /><div class="grid grid-cols-2 gap-2.5"><div><label>Date</label><input id="receipt-date" type="date" class="w-full" required /></div><div><label>Mode</label><select id="receipt-mode" class="w-full"><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option>Cash</option></select></div></div><div><label>Client Name / Source</label><input id="receipt-client" type="text" class="w-full" placeholder="e.g., Mr. Rao" /></div><div class="grid grid-cols-2 gap-2.5"><div><label>Amount (INR)</label><input id="receipt-amount" type="number" min="0" step="0.01" class="w-full" placeholder="0.00" /></div><div><label>Ref / Invoice</label><input id="receipt-ref" type="text" class="w-full" placeholder="e.g., Receipt-001" /></div></div><div><label>Notes</label><input id="receipt-notes" type="text" class="w-full" placeholder="e.g., Advance payment" /></div><div class="flex gap-2 pt-1"><button type="submit" class="px-3.5 py-1.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs shadow-sm transition-colors">Save Receipt</button><button type="button" id="reset-receipt" class="px-3.5 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors">Reset</button></div></form></div>
+        <div class="card border-t-2 border-indigo-500"><h3 class="text-sm font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">Allocate Budget to Team</h3><form id="allocation-form" class="space-y-2.5" autocomplete="off"><input type="hidden" id="alloc-id" /><div><label>Source Receipt</label><select id="alloc-receipt" class="w-full"></select></div><div><label>Team Member</label><input id="alloc-member" type="text" class="w-full" placeholder="e.g., Site Supervisor" /></div><div class="grid grid-cols-2 gap-2.5"><div><label>Amount (INR)</label><input id="alloc-amount" type="number" min="0" step="0.01" class="w-full" placeholder="0.00" /></div><div><label>Purpose</label><input id="alloc-purpose" type="text" class="w-full" placeholder="e.g., Purchase cement" /></div></div><div class="flex gap-2 pt-1"><button type="submit" class="px-3.5 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm transition-colors">Allocate</button><button type="button" id="reset-alloc" class="px-3.5 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors">Reset</button></div></form></div>
       </div>
-
-      <!-- Receipts & Allocation Tables -->
       <div class="mt-3.5 grid xl:grid-cols-2 gap-3.5 sm:gap-5">
-        <div class="card p-0 overflow-hidden border-0 shadow-sm">
-          <div class="p-3 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-xs font-bold text-slate-800">Client Receipts</h3>
-            <div class="text-[0.65rem] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-semibold">Total: <span id="receipt-count">0</span></div>
-          </div>
-          <div class="table-wrap m-2 sm:m-3 mt-0">
-            <table class="min-w-full text-left w-full whitespace-nowrap">
-              <thead class="bg-slate-50">
-                <tr>
-                  <th>Date</th>
-                  <th>Client</th>
-                  <th>Amount</th>
-                  <th>Mode</th>
-                  <th>Ref</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="receipts-body"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="card p-0 overflow-hidden border-0 shadow-sm border-t-2 border-indigo-500 rounded-b-xl rounded-t-none">
-          <div class="p-3 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-xs font-bold text-slate-800">Team Allocations</h3>
-            <div class="text-[0.65rem] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">Total: <span id="alloc-count">0</span></div>
-          </div>
-          <div class="table-wrap m-2 sm:m-3 mt-0">
-            <table class="min-w-full text-left w-full whitespace-nowrap">
-              <thead class="bg-slate-50">
-                <tr>
-                  <th>Date</th>
-                  <th>Member</th>
-                  <th>Amount</th>
-                  <th>Purpose</th>
-                  <th>Source</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="alloc-body"></tbody>
-            </table>
-          </div>
-        </div>
+        <div class="card p-0 overflow-hidden border-0 shadow-sm"><div class="p-3 border-b border-slate-100 flex items-center justify-between"><h3 class="text-xs font-bold text-slate-800">Client Receipts</h3><div class="text-[0.65rem] bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-semibold">Total: <span id="receipt-count">0</span></div></div><div class="table-wrap m-2 sm:m-3 mt-0"><table class="min-w-full text-left w-full whitespace-nowrap"><thead class="bg-slate-50"><tr><th>Date</th><th>Client</th><th>Amount</th><th>Mode</th><th>Ref</th><th>Actions</th></tr></thead><tbody id="receipts-body"></tbody></table></div></div>
+        <div class="card p-0 overflow-hidden border-0 shadow-sm border-t-2 border-indigo-500 rounded-b-xl rounded-t-none"><div class="p-3 border-b border-slate-100 flex items-center justify-between"><h3 class="text-xs font-bold text-slate-800">Team Allocations</h3><div class="text-[0.65rem] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">Total: <span id="alloc-count">0</span></div></div><div class="table-wrap m-2 sm:m-3 mt-0"><table class="min-w-full text-left w-full whitespace-nowrap"><thead class="bg-slate-50"><tr><th>Date</th><th>Member</th><th>Amount</th><th>Purpose</th><th>Source</th><th>Actions</th></tr></thead><tbody id="alloc-body"></tbody></table></div></div>
       </div>
     </section>
-
   </main>
 
-  <!-- EXPENSE IMAGE LIGHTBOX MODAL -->
-  <div id="image-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl max-w-2xl w-full p-4 relative shadow-2xl max-h-[90vh] flex flex-col">
-      <div class="flex justify-between items-center pb-2.5 border-b border-slate-100">
-        <h3 class="font-bold text-slate-800 text-sm">Expense Image Attachment</h3>
-        <button id="close-image-modal" type="button" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-sm transition-colors">&times;</button>
-      </div>
-      <div class="mt-3 flex-1 overflow-auto flex items-center justify-center bg-slate-50 rounded-lg p-2 border border-slate-200">
-        <img id="modal-image-display" src="" class="max-h-[70vh] max-w-full object-contain rounded" alt="Expense Image" />
-      </div>
-    </div>
-  </div>
+  <div id="image-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"><div class="bg-white rounded-xl max-w-2xl w-full p-4 relative shadow-2xl max-h-[90vh] flex flex-col"><div class="flex justify-between items-center pb-2.5 border-b border-slate-100"><h3 class="font-bold text-slate-800 text-sm">Expense Image Attachment</h3><button id="close-image-modal" type="button" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-sm transition-colors">&times;</button></div><div class="mt-3 flex-1 overflow-auto flex items-center justify-center bg-slate-50 rounded-lg p-2 border border-slate-200"><img id="modal-image-display" src="" class="max-h-[70vh] max-w-full object-contain rounded" alt="Expense Image" /></div></div></div>
 
-  <!-- JAVASCRIPT APP CORE -->
-  <script>
-    // Supabase Credentials & Client Initialization
-    const SUPABASE_URL = 'https://ukvoqdmxhnfmiscjqppb.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdm9xZG14aG5mbWlzYcjqcHBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzY5MzgsImV4cCI6MjEwMTk1MjkzOH0.UWCz137lqh9Q0ovcYXVMsKg87agtuxArxPClR5N_1a4';
+<script>
+  const SUPABASE_URL = 'https://ukvoqdmxhnfmiscjqppb.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrdm9xZG14aG5mbWlzY2pxcHBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNzY5MzgsImV4cCI6MjEwMTk1MjkzOH0.UWCz137lqh9Q0ovcYXVMsKg87agtuxArxPClR5N_1a4';
+  const supabaseClient = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const LS_KEY = 'axon_expenses_v1';
+  const LS_CAT = 'axon_categories_v1';
+  const LS_AREA = 'axon_build_area_v1';
+  const LS_RECEIPTS = 'axon_receipts_v1';
+  const LS_ALLOCS = 'axon_allocs_v1';
+  const LS_DASHBOARD_PREFS = 'axon_dashboard_prefs_v1';
+  const CLOUD_ROW_ID = 'main';
 
-    // Utilities & persistence keys
-    const LS_KEY = 'axon_expenses_v1';
-    const LS_CAT = 'axon_categories_v1';
-    const LS_AREA = 'axon_build_area_v1';
-    const LS_RECEIPTS = 'axon_receipts_v1';
-    const LS_ALLOCS = 'axon_allocs_v1';
+  const $ = id => document.getElementById(id);
+  const uid = () => 'id-' + Math.random().toString(36).slice(2, 9);
+  const today = () => new Date().toISOString().slice(0, 10);
 
-    function uid() { return 'id-' + Math.random().toString(36).slice(2,9); }
+  function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+  }
 
-    function formatINR(num) {
-      if (num === null || num === undefined || isNaN(num)) return '₹0';
-      const n = Number(num).toFixed(2);
-      const parts = n.split('.');
-      let intPart = parts[0];
-      const dec = parts[1];
-      const neg = intPart.startsWith('-');
-      if (neg) intPart = intPart.slice(1);
-      let last3 = intPart.slice(-3);
-      let rest = intPart.slice(0, -3);
-      if (rest !== '') {
-        last3 = ',' + last3;
-        rest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
-      }
-      return (neg ? '-' : '') + '₹' + (rest ? rest + last3 : last3) + '.' + dec;
-    }
+  function formatINR(num) {
+    if (num === null || num === undefined || isNaN(num)) return 'INR 0.00';
+    const n = Number(num).toFixed(2);
+    const parts = n.split('.');
+    let intPart = parts[0];
+    const dec = parts[1];
+    const neg = intPart.startsWith('-');
+    if (neg) intPart = intPart.slice(1);
+    let last3 = intPart.slice(-3);
+    let rest = intPart.slice(0, -3);
+    if (rest !== '') { last3 = ',' + last3; rest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ','); }
+    return (neg ? '-' : '') + 'INR ' + (rest ? rest + last3 : last3) + '.' + dec;
+  }
 
-    function monthKey(dateStr) {
-      const d = new Date(dateStr);
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    }
+  function monthKey(dateStr) {
+    const d = new Date(dateStr || today());
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
 
-    // Default categories & mock transactions
-    const defaultCategories = [
-      { name: 'Pre-Construction', subs: ['BBMP Plan Sanction', 'BESCOM Deposit', 'BWSSB Deposit', 'Structural Engineer Fees'] },
-      { name: 'Structural', subs: ['M-Sand', 'P-Sand', 'Cement', 'TMT Bars', 'Bricks/Blocks', 'Foundation Excavation'] },
-      { name: 'Finishing', subs: ['Flooring (Tiles)', 'Granite', 'Teak Wood Frames', 'Painting', 'Modular Kitchen', 'Sanitary Ware'] },
-      { name: 'Labor', subs: ['Daily Wage Coolie', 'Maistry Payments', 'Contractor Milestone'] },
-      { name: 'Misc', subs: ['Site Security', 'Temporary Water', 'Transport'] }
-    ];
+  const defaultCategories = [
+    { name: 'Pre-Construction', subs: ['BBMP Plan Sanction', 'BESCOM Deposit', 'BWSSB Deposit', 'Structural Engineer Fees'] },
+    { name: 'Structural', subs: ['M-Sand', 'P-Sand', 'Cement', 'TMT Bars', 'Bricks/Blocks', 'Foundation Excavation'] },
+    { name: 'Finishing', subs: ['Flooring (Tiles)', 'Granite', 'Teak Wood Frames', 'Painting', 'Modular Kitchen', 'Sanitary Ware'] },
+    { name: 'Labor', subs: ['Daily Wage Coolie', 'Maistry Payments', 'Contractor Milestone'] },
+    { name: 'Misc', subs: ['Site Security', 'Temporary Water', 'Transport'] }
+  ];
 
-    const mockTransactions = [
-      { id: uid(), date: '2026-01-05', description: 'BBMP plan sanction fee', category: 'Pre-Construction', subCategory: 'BBMP Plan Sanction', vendor: 'BBMP Office', estimated: 50000, actual: 50000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-001', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-01-10', description: 'BESCOM electrical deposit', category: 'Pre-Construction', subCategory: 'BESCOM Deposit', vendor: 'BESCOM', estimated: 30000, actual: 30000, paymentMode: 'Cheque', gstInvoice: '', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-01-12', description: 'BWSSB water connection deposit', category: 'Pre-Construction', subCategory: 'BWSSB Deposit', vendor: 'BWSSB', estimated: 25000, actual: 25000, paymentMode: 'Bank Transfer', gstInvoice: '', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-02-02', description: 'Structural engineer consultancy', category: 'Pre-Construction', subCategory: 'Structural Engineer Fees', vendor: 'Suresh Engineers', estimated: 60000, actual: 60000, paymentMode: 'UPI', gstInvoice: 'GST-INV-002', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-02-15', description: 'M-Sand delivery for foundation', category: 'Structural', subCategory: 'M-Sand', vendor: 'M-Sand Suppliers', estimated: 120000, actual: 125000, paymentMode: 'Cash', gstInvoice: 'GST-INV-003', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-02-20', description: 'Cement bags for foundation', category: 'Structural', subCategory: 'Cement', vendor: 'UltraCem Distributors', estimated: 80000, actual: 78000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-004', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-03-05', description: 'TMT bars delivery', category: 'Structural', subCategory: 'TMT Bars', vendor: 'TMT Traders', estimated: 150000, actual: 160000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-005', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-03-18', description: 'Foundation excavation (contractor)', category: 'Structural', subCategory: 'Foundation Excavation', vendor: 'Ramesh Contractors', estimated: 90000, actual: 90000, paymentMode: 'UPI', gstInvoice: '', status: 'Partial', image: '' },
-      { id: uid(), date: '2026-04-02', description: 'Daily wage coolie payments', category: 'Labor', subCategory: 'Daily Wage Coolie', vendor: 'Site Cash', estimated: 20000, actual: 20000, paymentMode: 'Cash', gstInvoice: '', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-04-10', description: 'Maistry payments for brickwork', category: 'Labor', subCategory: 'Maistry Payments', vendor: 'Maistry Group', estimated: 40000, actual: 42000, paymentMode: 'UPI', gstInvoice: '', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-05-05', description: 'Bricks purchase', category: 'Structural', subCategory: 'Bricks/Blocks', vendor: 'Brick House', estimated: 60000, actual: 58000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-006', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-05-20', description: 'Flooring tiles (ground floor)', category: 'Finishing', subCategory: 'Flooring (Tiles)', vendor: 'Tile World', estimated: 70000, actual: 75000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-007', status: 'Pending', image: '' },
-      { id: uid(), date: '2026-06-01', description: 'Granite for kitchen platform', category: 'Finishing', subCategory: 'Granite', vendor: 'Granite Mart', estimated: 45000, actual: 45000, paymentMode: 'UPI', gstInvoice: 'GST-INV-008', status: 'Paid', image: '' },
-      { id: uid(), date: '2026-06-12', description: 'Modular kitchen advance', category: 'Finishing', subCategory: 'Modular Kitchen', vendor: 'KitchenPro', estimated: 120000, actual: 60000, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-009', status: 'Partial', image: '' },
-      { id: uid(), date: '2026-06-20', description: 'Sanitary ware purchase', category: 'Finishing', subCategory: 'Sanitary Ware', vendor: 'Sanitary Hub', estimated: 30000, actual: 30000, paymentMode: 'Cash', gstInvoice: '', status: 'Paid', image: '' }
-    ];
+  const mockTransactions = [
+    { id: uid(), date: '2026-01-05', description: 'BBMP plan sanction fee', category: 'Pre-Construction', subCategory: 'BBMP Plan Sanction', vendor: 'BBMP Office', estimated: 50000, actual: 50000, units: '', perUnitCost: '', paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-001', status: 'Paid', image: '' },
+    { id: uid(), date: '2026-02-15', description: 'M-Sand delivery for foundation', category: 'Structural', subCategory: 'M-Sand', vendor: 'M-Sand Suppliers', estimated: 120000, actual: 125000, units: 250, perUnitCost: 500, paymentMode: 'Cash', gstInvoice: 'GST-INV-003', status: 'Paid', image: '' },
+    { id: uid(), date: '2026-02-20', description: 'Cement bags for foundation', category: 'Structural', subCategory: 'Cement', vendor: 'UltraCem Distributors', estimated: 80000, actual: 78000, units: 185, perUnitCost: 421.62, paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-004', status: 'Paid', image: '' },
+    { id: uid(), date: '2026-05-20', description: 'Flooring tiles ground floor', category: 'Finishing', subCategory: 'Flooring (Tiles)', vendor: 'Tile World', estimated: 70000, actual: 75000, units: '', perUnitCost: '', paymentMode: 'Bank Transfer', gstInvoice: 'GST-INV-007', status: 'Pending', image: '' }
+  ];
 
-    // App state
-    let expenses = [];
-    let categories = [];
-    let buildArea = 2000;
-    let receipts = [];
-    let allocations = [];
+  let expenses = [];
+  let categories = [];
+  let buildArea = 2000;
+  let receipts = [];
+  let allocations = [];
+  let dashboardPrefs = {};
+  let isApplyingRemoteUpdate = false;
+  let currentSort = { key: 'date', dir: 'desc' };
+  let chartStatutory, chartStructural, chartFinishing, chartLabor, chartVendors, chartMaterialVariance, chartPaymentMode, chartMonthlyTrend;
 
-    // Load / Save Local & Cloud State
-    function loadState() {
-      try { categories = JSON.parse(localStorage.getItem(LS_CAT)) || defaultCategories; } catch(e){ categories = defaultCategories; }
-      try { expenses = JSON.parse(localStorage.getItem(LS_KEY)) || mockTransactions; } catch(e){ expenses = mockTransactions; }
-      try { receipts = JSON.parse(localStorage.getItem(LS_RECEIPTS)) || [{ id: uid(), date: '2026-01-01', client: 'Mr. Rao', amount: 500000, mode: 'Bank Transfer', ref: 'Advance-001', notes: 'Project advance' }]; } catch(e){ receipts = []; }
-      try { allocations = JSON.parse(localStorage.getItem(LS_ALLOCS)) || []; } catch(e){ allocations = []; }
-      buildArea = Number(localStorage.getItem(LS_AREA)) || buildArea;
-    }
+  function loadState() {
+    try { categories = JSON.parse(localStorage.getItem(LS_CAT)) || structuredClone(defaultCategories); } catch(e) { categories = structuredClone(defaultCategories); }
+    try { expenses = JSON.parse(localStorage.getItem(LS_KEY)) || structuredClone(mockTransactions); } catch(e) { expenses = structuredClone(mockTransactions); }
+    try { receipts = JSON.parse(localStorage.getItem(LS_RECEIPTS)) || [{ id: uid(), date: '2026-01-01', client: 'Mr. Rao', amount: 500000, mode: 'Bank Transfer', ref: 'Advance-001', notes: 'Project advance' }]; } catch(e) { receipts = []; }
+    try { allocations = JSON.parse(localStorage.getItem(LS_ALLOCS)) || []; } catch(e) { allocations = []; }
+    try { dashboardPrefs = JSON.parse(localStorage.getItem(LS_DASHBOARD_PREFS)) || {}; } catch(e) { dashboardPrefs = {}; }
+    buildArea = Number(localStorage.getItem(LS_AREA)) || buildArea;
+  }
 
-    function saveState() {
-      try {
-        localStorage.setItem(LS_KEY, JSON.stringify(expenses));
-        localStorage.setItem(LS_CAT, JSON.stringify(categories));
-        localStorage.setItem(LS_AREA, String(buildArea));
-        localStorage.setItem(LS_RECEIPTS, JSON.stringify(receipts));
-        localStorage.setItem(LS_ALLOCS, JSON.stringify(allocations));
-      } catch(e) { console.error("LocalStorage write error", e); }
-      saveCloudState();
-    }
+  function saveLocalState() {
+    localStorage.setItem(LS_KEY, JSON.stringify(expenses));
+    localStorage.setItem(LS_CAT, JSON.stringify(categories));
+    localStorage.setItem(LS_AREA, String(buildArea));
+    localStorage.setItem(LS_RECEIPTS, JSON.stringify(receipts));
+    localStorage.setItem(LS_ALLOCS, JSON.stringify(allocations));
+    localStorage.setItem(LS_DASHBOARD_PREFS, JSON.stringify(dashboardPrefs));
+  }
 
-    async function loadCloudState() {
-      try {
-        const { data, error } = await supabaseClient
-          .from('project_data')
-          .select('payload')
-          .eq('id', 'main')
-          .single();
+  async function saveState() {
+    saveLocalState();
+    if (!isApplyingRemoteUpdate) await saveCloudState();
+  }
 
-        if (data && data.payload && Object.keys(data.payload).length > 0) {
-          expenses = data.payload.expenses || [];
-          categories = data.payload.categories || defaultCategories;
-          receipts = data.payload.receipts || [];
-          allocations = data.payload.allocations || [];
-          buildArea = data.payload.buildArea || buildArea;
+  async function saveCloudState() {
+    if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) return;
+    try {
+      const payload = { expenses, categories, buildArea, receipts, allocations };
+      const { error } = await supabaseClient.from('project_data').upsert({ id: CLOUD_ROW_ID, payload, updated_at: new Date().toISOString() });
+      if (error) console.warn('Cloud save error:', error.message);
+    } catch (err) { console.warn('Cloud save error:', err); }
+  }
 
-          populateCategorySelects();
-          renderLedger();
-          renderReceipts();
-          renderAllocations();
-        }
-      } catch (err) {
-        console.warn("Cloud load failed, using local storage", err);
-      }
-    }
+  function applyPayload(payload) {
+    if (!payload) return;
+    expenses = payload.expenses || [];
+    categories = payload.categories || structuredClone(defaultCategories);
+    receipts = payload.receipts || [];
+    allocations = payload.allocations || [];
+    buildArea = payload.buildArea || buildArea;
+    isApplyingRemoteUpdate = true;
+    saveLocalState();
+    isApplyingRemoteUpdate = false;
+    populateCategorySelects();
+    refreshAllViews();
+  }
 
-    async function saveCloudState() {
-      try {
-        const payload = { expenses, categories, buildArea, receipts, allocations };
-        await supabaseClient
-          .from('project_data')
-          .upsert({ id: 'main', payload, updated_at: new Date() });
-      } catch (err) {
-        console.warn("Cloud save error", err);
-      }
-    }
+  async function loadCloudState() {
+    if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) return;
+    try {
+      const { data, error } = await supabaseClient.from('project_data').select('payload').eq('id', CLOUD_ROW_ID).single();
+      if (error && error.code !== 'PGRST116') console.warn('Cloud load warning:', error.message);
+      if (data && data.payload && Object.keys(data.payload).length > 0) applyPayload(data.payload);
+    } catch (err) { console.warn('Cloud load failed, using local storage:', err); }
+  }
 
-    // Subscribe to real-time updates
-    supabaseClient
-      .channel('public:project_data')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'project_data' }, payload => {
-        loadCloudState();
+  function initRealtime() {
+    if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) return;
+    supabaseClient.channel('public:project_data')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_data' }, payload => {
+        const nextPayload = payload.new && payload.new.payload;
+        if (nextPayload) applyPayload(nextPayload);
+        else loadCloudState();
       })
       .subscribe();
+  }
 
-    loadState();
-
-    // DOM Helper
-    const $ = id => document.getElementById(id);
-
-    function escapeHtml(s) { if (!s) return ''; return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-
-    // Category Selects & Tree Display
-    function populateCategorySelects() {
-      const catSelects = [$('category'), $('parent-category'), $('filterCategory')].filter(Boolean);
-      catSelects.forEach(s => {
-        s.innerHTML = '';
-        if (s === $('filterCategory')) {
-          const opt = document.createElement('option'); opt.value=''; opt.textContent='All Categories'; s.appendChild(opt);
-        }
-        categories.forEach(c => {
-          const opt = document.createElement('option'); opt.value = c.name; opt.textContent = c.name; s.appendChild(opt);
-        });
-      });
-      updateSubCategoryOptions();
-      renderCategoryTree();
-    }
-
-    function updateSubCategoryOptions() {
-      const cat = $('category') ? $('category').value : (categories[0] && categories[0].name);
-      const sub = $('subCategory');
-      if (!sub) return;
-      sub.innerHTML = '';
-      const found = categories.find(c => c.name === cat);
-      if (found) found.subs.forEach(sname => { const opt = document.createElement('option'); opt.value = sname; opt.textContent = sname; sub.appendChild(opt); });
-    }
-
-    function renderCategoryTree() {
-      const container = $('categories-tree-container');
-      if (!container) return;
-      container.innerHTML = '';
-
-      if (categories.length === 0) {
-        container.innerHTML = '<div class="text-slate-400 text-xs italic">No categories available.</div>';
-        return;
-      }
-
-      categories.forEach((cat, catIdx) => {
-        const catEl = document.createElement('div');
-        catEl.className = 'bg-slate-50 border border-slate-200 rounded-md p-2 text-xs';
-
-        let subsHTML = '';
-        if (cat.subs && cat.subs.length > 0) {
-          subsHTML = '<div class="mt-1.5 pl-2 space-y-1 border-l-2 border-slate-200">' + 
-            cat.subs.map((sub, subIdx) => `
-              <div class="flex items-center justify-between text-[0.725rem] text-slate-600">
-                <span>• ${escapeHtml(sub)}</span>
-                <button type="button" class="del-sub-btn text-red-500 hover:text-red-700 hover:underline text-[0.65rem] font-medium" data-cat-idx="${catIdx}" data-sub-idx="${subIdx}">Delete</button>
-              </div>
-            `).join('') +
-            '</div>';
-        } else {
-          subsHTML = '<div class="mt-1 pl-2 text-[0.65rem] text-slate-400 italic">No sub-categories</div>';
-        }
-
-        catEl.innerHTML = `
-          <div class="flex items-center justify-between font-semibold text-slate-700">
-            <span class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-teal-500"></span>
-              ${escapeHtml(cat.name)}
-            </span>
-            <button type="button" class="del-cat-btn px-1.5 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-[0.65rem] font-medium transition-colors" data-cat-idx="${catIdx}">Delete Category</button>
-          </div>
-          ${subsHTML}
-        `;
-
-        container.appendChild(catEl);
-      });
-    }
-
-    $('categories-tree-container')?.addEventListener('click', (e) => {
-      if (e.target.classList.contains('del-cat-btn')) {
-        const catIdx = parseInt(e.target.dataset.catIdx, 10);
-        const catName = categories[catIdx]?.name;
-        if (catName && confirm(`Delete category "${catName}" and all its sub-categories?`)) {
-          categories.splice(catIdx, 1);
-          saveState();
-          populateCategorySelects();
-        }
-      } else if (e.target.classList.contains('del-sub-btn')) {
-        const catIdx = parseInt(e.target.dataset.catIdx, 10);
-        const subIdx = parseInt(e.target.dataset.subIdx, 10);
-        const subName = categories[catIdx]?.subs[subIdx];
-        if (subName && confirm(`Delete sub-category "${subName}" from "${categories[catIdx].name}"?`)) {
-          categories[catIdx].subs.splice(subIdx, 1);
-          saveState();
-          populateCategorySelects();
-        }
-      }
+  function populateCategorySelects() {
+    const catSelects = [$('category'), $('parent-category'), $('filterCategory')].filter(Boolean);
+    catSelects.forEach(s => {
+      s.innerHTML = '';
+      if (s === $('filterCategory')) { const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'All Categories'; s.appendChild(opt); }
+      categories.forEach(c => { const opt = document.createElement('option'); opt.value = c.name; opt.textContent = c.name; s.appendChild(opt); });
     });
+    updateSubCategoryOptions();
+    renderCategoryTree();
+  }
 
-    // Ledger Rendering & Sorting
+  function updateSubCategoryOptions() {
+    const cat = $('category') ? $('category').value : categories[0]?.name;
+    const sub = $('subCategory');
+    if (!sub) return;
+    sub.innerHTML = '';
+    const found = categories.find(c => c.name === cat);
+    if (found) found.subs.forEach(sname => { const opt = document.createElement('option'); opt.value = sname; opt.textContent = sname; sub.appendChild(opt); });
+  }
+
+  function renderCategoryTree() {
+    const container = $('categories-tree-container');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!categories.length) { container.innerHTML = '<div class="text-slate-400 text-xs italic">No categories available.</div>'; return; }
+    categories.forEach((cat, catIdx) => {
+      const catEl = document.createElement('div');
+      catEl.className = 'bg-slate-50 border border-slate-200 rounded-md p-2 text-xs';
+      const subsHTML = cat.subs?.length ? '<div class="mt-1.5 pl-2 space-y-1 border-l-2 border-slate-200">' + cat.subs.map((sub, subIdx) => `<div class="flex items-center justify-between text-[0.725rem] text-slate-600"><span>• ${escapeHtml(sub)}</span><button type="button" class="del-sub-btn text-red-500 hover:text-red-700 hover:underline text-[0.65rem] font-medium" data-cat-idx="${catIdx}" data-sub-idx="${subIdx}">Delete</button></div>`).join('') + '</div>' : '<div class="mt-1 pl-2 text-[0.65rem] text-slate-400 italic">No sub-categories</div>';
+      catEl.innerHTML = `<div class="flex items-center justify-between font-semibold text-slate-700"><span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-teal-500"></span>${escapeHtml(cat.name)}</span><button type="button" class="del-cat-btn px-1.5 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-[0.65rem] font-medium transition-colors" data-cat-idx="${catIdx}">Delete Category</button></div>${subsHTML}`;
+      container.appendChild(catEl);
+    });
+  }
+
+  function renderLedger() {
     const ledgerBody = $('ledger-body');
-    const txCount = $('tx-count');
-    let currentSort = { key: 'date', dir: 'desc' };
+    if (!ledgerBody) return;
+    const search = ($('searchText')?.value || '').toLowerCase();
+    const fCat = $('filterCategory')?.value || '';
+    const fStatus = $('filterStatus')?.value || '';
+    const fMode = $('filterMode')?.value || '';
+    let list = expenses.slice();
+    if (search) list = list.filter(e => (e.description || '').toLowerCase().includes(search) || (e.vendor || '').toLowerCase().includes(search) || (e.gstInvoice || '').toLowerCase().includes(search));
+    if (fCat) list = list.filter(e => e.category === fCat);
+    if (fStatus) list = list.filter(e => e.status === fStatus);
+    if (fMode) list = list.filter(e => e.paymentMode === fMode);
+    list.sort((a, b) => {
+      const k = currentSort.key;
+      let av = k === 'variance' ? Number(a.estimated || 0) - Number(a.actual || 0) : a[k];
+      let bv = k === 'variance' ? Number(b.estimated || 0) - Number(b.actual || 0) : b[k];
+      if (k === 'date') { av = new Date(a.date || 0); bv = new Date(b.date || 0); }
+      if (['estimated', 'actual', 'variance', 'units', 'perUnitCost'].includes(k)) { av = Number(av || 0); bv = Number(bv || 0); }
+      if (av < bv) return currentSort.dir === 'asc' ? -1 : 1;
+      if (av > bv) return currentSort.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    ledgerBody.innerHTML = '';
+    list.forEach(tx => {
+      const tr = document.createElement('tr');
+      const variance = Number(tx.estimated || 0) - Number(tx.actual || 0);
+      const varianceClass = variance >= 0 ? 'variance-positive' : 'variance-negative';
+      const statusBadge = tx.status === 'Paid' ? '<span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[0.65rem] font-medium">Paid</span>' : tx.status === 'Partial' ? '<span class="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[0.65rem] font-medium">Partial</span>' : '<span class="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-[0.65rem] font-medium">Pending</span>';
+      const imageBtn = tx.image ? `<button type="button" data-img="${escapeHtml(tx.image)}" class="view-img-btn px-1.5 py-0.5 rounded bg-teal-50 hover:bg-teal-100 text-teal-700 text-[0.65rem] border border-teal-200 font-medium">View</button>` : '<span class="text-slate-400 text-[0.65rem]">--</span>';
+      tr.innerHTML = `<td>${escapeHtml(tx.date)}</td><td class="font-medium text-slate-700">${escapeHtml(tx.description)}</td><td class="text-slate-500">${escapeHtml(tx.category)}</td><td class="text-slate-500">${escapeHtml(tx.subCategory)}</td><td>${escapeHtml(tx.vendor)}</td><td>${formatINR(tx.estimated)}</td><td class="font-semibold">${formatINR(tx.actual)}</td><td class="text-slate-500">${tx.units !== '' && tx.units !== undefined ? escapeHtml(tx.units) : '--'}</td><td class="text-slate-500">${tx.perUnitCost !== '' && tx.perUnitCost !== undefined ? formatINR(tx.perUnitCost) : '--'}</td><td class="font-semibold"><span class="${varianceClass}">${formatINR(variance)}</span></td><td class="text-slate-500">${escapeHtml(tx.paymentMode)}</td><td>${statusBadge}</td><td class="text-slate-500 text-[0.65rem]">${escapeHtml(tx.gstInvoice || '--')}</td><td>${imageBtn}</td><td><button data-id="${tx.id}" class="edit-btn px-2 py-0.5 rounded bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium text-[0.65rem] border border-yellow-200" type="button">Edit</button><button data-id="${tx.id}" class="del-btn px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 font-medium text-[0.65rem] border border-red-200 ml-1" type="button">Del</button></td>`;
+      ledgerBody.appendChild(tr);
+    });
+    if ($('tx-count')) $('tx-count').textContent = list.length;
+  }
 
-    function renderLedger() {
-      if (!ledgerBody) return;
-      const search = ($('searchText')?.value || '').toLowerCase();
-      const fCat = $('filterCategory')?.value || '';
-      const fStatus = $('filterStatus')?.value || '';
-      const fMode = $('filterMode')?.value || '';
+  function resetExpenseForm() {
+    $('expense-form')?.reset();
+    if ($('expense-id')) $('expense-id').value = '';
+    if ($('expense-image-data')) $('expense-image-data').value = '';
+    if ($('image-preview-container')) $('image-preview-container').classList.add('hidden');
+    if ($('image-preview')) $('image-preview').src = '';
+    updateSubCategoryOptions();
+  }
 
-      let list = expenses.slice();
-      if (search) list = list.filter(e => (e.description||'').toLowerCase().includes(search) || (e.vendor||'').toLowerCase().includes(search) || (e.gstInvoice||'').toLowerCase().includes(search));
-      if (fCat) list = list.filter(e => e.category === fCat);
-      if (fStatus) list = list.filter(e => e.status === fStatus);
-      if (fMode) list = list.filter(e => e.paymentMode === fMode);
+  function openEdit(id) {
+    const tx = expenses.find(x => x.id === id); if (!tx) return;
+    activateTab('transactions');
+    $('expense-id').value = tx.id; $('date').value = tx.date; $('description').value = tx.description;
+    $('category').value = tx.category; updateSubCategoryOptions(); $('subCategory').value = tx.subCategory;
+    $('vendor').value = tx.vendor || ''; $('estimated').value = tx.estimated || ''; $('actual').value = tx.actual || '';
+    $('units').value = tx.units || ''; $('perUnitCost').value = tx.perUnitCost || '';
+    $('paymentMode').value = tx.paymentMode || 'UPI'; $('gstInvoice').value = tx.gstInvoice || ''; $('status').value = tx.status || 'Paid';
+    $('expense-image-data').value = tx.image || '';
+    if (tx.image) { $('image-preview').src = tx.image; $('image-preview-container').classList.remove('hidden'); } else { $('image-preview-container').classList.add('hidden'); }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
-      list.sort((a,b) => {
-        const k = currentSort.key;
-        let av = a[k], bv = b[k];
-        if (k === 'date') { av = new Date(a.date); bv = new Date(b.date); }
-        if (k === 'estimated' || k === 'actual' || k === 'variance') { av = Number(av || 0); bv = Number(bv || 0); }
-        if (av < bv) return currentSort.dir === 'asc' ? -1 : 1;
-        if (av > bv) return currentSort.dir === 'asc' ? 1 : -1;
-        return 0;
-      });
+  function showImageModal(src) { if ($('image-modal') && $('modal-image-display')) { $('modal-image-display').src = src; $('image-modal').classList.remove('hidden'); } }
 
-      ledgerBody.innerHTML = '';
-      list.forEach(tx => {
-        const tr = document.createElement('tr');
-        const variance = (Number(tx.estimated || 0) - Number(tx.actual || 0));
-        const varianceClass = variance >= 0 ? 'variance-positive' : 'variance-negative';
-        
-        let statusBadge = '';
-        if(tx.status === 'Paid') statusBadge = '<span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[0.65rem] font-medium">Paid</span>';
-        else if(tx.status === 'Partial') statusBadge = '<span class="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[0.65rem] font-medium">Partial</span>';
-        else statusBadge = '<span class="bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded text-[0.65rem] font-medium">Pending</span>';
+  function populateReceiptSelect() {
+    const sel = $('alloc-receipt'); if (!sel) return;
+    sel.innerHTML = '';
+    receipts.forEach(r => { const opt = document.createElement('option'); opt.value = r.id; opt.textContent = `${r.date} • ${r.client || 'Client'} • ${formatINR(r.amount)}`; sel.appendChild(opt); });
+  }
 
-        const imageBtn = tx.image 
-          ? `<button type="button" data-img="${escapeHtml(tx.image)}" class="view-img-btn px-1.5 py-0.5 rounded bg-teal-50 hover:bg-teal-100 text-teal-700 text-[0.65rem] border border-teal-200 font-medium inline-flex items-center gap-1 transition-colors">📷 View</button>` 
-          : '<span class="text-slate-400 text-[0.65rem]">—</span>';
+  function renderReceipts() {
+    const body = $('receipts-body'); if (!body) return;
+    body.innerHTML = '';
+    receipts.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(r.date)}</td><td class="font-medium">${escapeHtml(r.client)}</td><td class="font-semibold text-teal-600">${formatINR(r.amount)}</td><td>${escapeHtml(r.mode)}</td><td class="text-slate-500">${escapeHtml(r.ref)}</td><td><button data-id="${r.id}" class="edit-receipt px-2 py-0.5 rounded bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium text-[0.65rem] border border-yellow-200" type="button">Edit</button><button data-id="${r.id}" class="del-receipt px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 font-medium text-[0.65rem] border border-red-200 ml-1" type="button">Del</button></td>`;
+      body.appendChild(tr);
+    });
+    if ($('receipt-count')) $('receipt-count').textContent = receipts.length;
+    populateReceiptSelect();
+  }
 
-        tr.innerHTML = `
-          <td>${tx.date}</td>
-          <td class="font-medium text-slate-700">${escapeHtml(tx.description)}</td>
-          <td class="text-slate-500">${escapeHtml(tx.category)}</td>
-          <td class="text-slate-500">${escapeHtml(tx.subCategory)}</td>
-          <td>${escapeHtml(tx.vendor)}</td>
-          <td>${formatINR(tx.estimated)}</td>
-          <td class="font-semibold">${formatINR(tx.actual)}</td>
-          <td class="font-semibold"><span class="${varianceClass}">${formatINR(variance)}</span></td>
-          <td class="text-slate-500">${escapeHtml(tx.paymentMode)}</td>
-          <td>${statusBadge}</td>
-          <td class="text-slate-500 text-[0.65rem]">${escapeHtml(tx.gstInvoice || '--')}</td>
-          <td>${imageBtn}</td>
-          <td>
-            <button data-id="${tx.id}" class="edit-btn px-2 py-0.5 rounded bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium text-[0.65rem] border border-yellow-200" type="button">Edit</button>
-            <button data-id="${tx.id}" class="del-btn px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 font-medium text-[0.65rem] border border-red-200 ml-1" type="button">Del</button>
-          </td>
-        `;
-        ledgerBody.appendChild(tr);
-      });
+  function renderAllocations() {
+    const body = $('alloc-body'); if (!body) return;
+    body.innerHTML = '';
+    allocations.forEach(a => {
+      const src = receipts.find(r => r.id === a.receiptId);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(a.date)}</td><td class="font-medium">${escapeHtml(a.member)}</td><td class="font-semibold text-indigo-600">${formatINR(a.amount)}</td><td class="text-slate-500">${escapeHtml(a.purpose)}</td><td>${src ? escapeHtml(src.client) : '--'}</td><td><button data-id="${a.id}" class="edit-alloc px-2 py-0.5 rounded bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium text-[0.65rem] border border-yellow-200" type="button">Edit</button><button data-id="${a.id}" class="del-alloc px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 font-medium text-[0.65rem] border border-red-200 ml-1" type="button">Del</button></td>`;
+      body.appendChild(tr);
+    });
+    if ($('alloc-count')) $('alloc-count').textContent = allocations.length;
+  }
 
-      if (txCount) txCount.textContent = list.length;
+  function computeGSTForTx(tx) {
+    const sub = (tx.subCategory || '').toLowerCase();
+    const finishingKeywords = ['floor', 'granite', 'teak', 'painting', 'modular', 'sanitary', 'tiles', 'kitchen'];
+    const isFinishing = finishingKeywords.some(k => sub.includes(k));
+    if (!tx.gstInvoice) return 0;
+    return Number(tx.actual || 0) * (isFinishing ? 0.12 : 0.18);
+  }
+
+  function renderDashboard() {
+    const totalInflow = receipts.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const totalEstimated = expenses.reduce((s, e) => s + Number(e.estimated || 0), 0);
+    const totalActual = expenses.reduce((s, e) => s + Number(e.actual || 0), 0);
+    const variance = totalEstimated - totalActual;
+    const netBalance = totalInflow - totalActual;
+    if ($('kpi-cash-inflow')) $('kpi-cash-inflow').textContent = formatINR(totalInflow);
+    if ($('kpi-net-balance')) $('kpi-net-balance').textContent = `Net: ${formatINR(netBalance)}`;
+    if ($('kpi-estimated')) $('kpi-estimated').textContent = formatINR(totalEstimated);
+    if ($('kpi-actual')) $('kpi-actual').textContent = formatINR(totalActual);
+    if ($('kpi-variance')) { $('kpi-variance').textContent = `Variance: ${formatINR(variance)} (${variance >= 0 ? 'Under budget' : 'Over budget'})`; $('kpi-variance').className = variance >= 0 ? 'text-teal-400 font-semibold' : 'text-red-400 font-semibold'; }
+    if ($('kpi-spent')) $('kpi-spent').textContent = formatINR(totalActual);
+    const contingencyReserve = totalEstimated * .10;
+    const contingencyUsed = Math.max(0, totalActual - (totalEstimated - contingencyReserve));
+    const contingencyPct = contingencyReserve ? Math.min(100, contingencyUsed / contingencyReserve * 100) : 0;
+    if ($('contingency-bar')) $('contingency-bar').style.width = contingencyPct + '%';
+    if ($('contingency-text')) $('contingency-text').textContent = `Used: ${formatINR(contingencyUsed)} of ${formatINR(contingencyReserve)} (${contingencyPct.toFixed(1)}%)`;
+    const cashOut = expenses.filter(e => e.status === 'Paid').reduce((s, e) => s + Number(e.actual || 0), 0);
+    const pendingCommitted = expenses.filter(e => e.status !== 'Paid').reduce((s, e) => s + Number(e.actual || 0), 0);
+    if ($('kpi-cash-out')) $('kpi-cash-out').textContent = formatINR(cashOut);
+    if ($('kpi-pending')) $('kpi-pending').textContent = formatINR(pendingCommitted);
+    if ($('kpi-gst')) $('kpi-gst').textContent = formatINR(expenses.reduce((s, e) => s + computeGSTForTx(e), 0));
+    if ($('kpi-cost-per-sqft')) $('kpi-cost-per-sqft').textContent = `${formatINR(buildArea ? totalActual / buildArea : 0)}/sq ft`;
+    const totalWithInvoice = expenses.filter(e => e.gstInvoice && e.gstInvoice.trim() !== '').length;
+    if ($('kpi-invoice-rate')) $('kpi-invoice-rate').textContent = (expenses.length ? Math.round(totalWithInvoice / expenses.length * 100) : 0) + '%';
+
+    const statutoryKeys = ['BBMP Plan Sanction', 'BESCOM Deposit', 'BWSSB Deposit', 'Structural Engineer Fees'];
+    const structuralKeys = ['M-Sand', 'P-Sand', 'Cement', 'TMT Bars', 'Bricks/Blocks', 'Foundation Excavation'];
+    const finishingKeys = ['Flooring (Tiles)', 'Granite', 'Teak Wood Frames', 'Painting', 'Modular Kitchen', 'Sanitary Ware'];
+    const dataFor = keys => keys.map(k => expenses.filter(e => e.subCategory === k).reduce((s, e) => s + Number(e.actual || 0), 0));
+    const dailyWage = expenses.filter(e => e.subCategory === 'Daily Wage Coolie').reduce((s, e) => s + Number(e.actual || 0), 0);
+    const maistry = expenses.filter(e => e.subCategory === 'Maistry Payments').reduce((s, e) => s + Number(e.actual || 0), 0);
+    const contractor = expenses.filter(e => e.subCategory === 'Contractor Milestone' || e.subCategory === 'Foundation Excavation').reduce((s, e) => s + Number(e.actual || 0), 0);
+    const vendorMap = {}; expenses.forEach(e => { const v = e.vendor || 'Unknown'; vendorMap[v] = (vendorMap[v] || 0) + Number(e.actual || 0); });
+    const vendorList = Object.entries(vendorMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const materialSubs = ['M-Sand', 'P-Sand', 'Cement', 'TMT Bars', 'Bricks/Blocks'];
+    const matEst = materialSubs.map(k => expenses.filter(e => e.subCategory === k).reduce((s, e) => s + Number(e.estimated || 0), 0));
+    const matAct = materialSubs.map(k => expenses.filter(e => e.subCategory === k).reduce((s, e) => s + Number(e.actual || 0), 0));
+    const modeLabels = ['UPI', 'Cash', 'Bank Transfer', 'Cheque'];
+    const modeValues = modeLabels.map(m => expenses.filter(e => e.paymentMode === m).reduce((s, e) => s + Number(e.actual || 0), 0));
+    const monthlyMap = {}; expenses.forEach(e => { const key = monthKey(e.date); monthlyMap[key] = (monthlyMap[key] || 0) + Number(e.actual || 0); });
+    const months = Object.keys(monthlyMap).sort(); const monthValues = months.map(m => monthlyMap[m]);
+
+    const burnBars = $('burn-bars');
+    if (burnBars) { burnBars.innerHTML = ''; categories.forEach(c => { const est = expenses.filter(e => e.category === c.name).reduce((s, e) => s + Number(e.estimated || 0), 0); const act = expenses.filter(e => e.category === c.name).reduce((s, e) => s + Number(e.actual || 0), 0); const pct = est ? Math.min(100, act / est * 100) : 0; const wrapper = document.createElement('div'); wrapper.innerHTML = `<div class="flex justify-between text-[0.68rem] font-medium text-slate-700 mb-0.5"><div>${escapeHtml(c.name)}</div><div>${formatINR(act)} / ${formatINR(est)}</div></div><div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div style="width:${pct}%; background:linear-gradient(90deg,var(--teal-1),var(--teal-2)); height:100%"></div></div>`; burnBars.appendChild(wrapper); }); }
+
+    const defaultChartOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 10, font: { size: 10 } } } } };
+    function upsertChart(ref, ctxId, cfg) { const el = $(ctxId); if (!el) return null; const ctx = el.getContext('2d'); if (ref && ref.destroy) ref.destroy(); return new Chart(ctx, cfg); }
+    if (!window.Chart) return;
+    try {
+      chartStatutory = upsertChart(chartStatutory, 'chart-statutory', { type: 'bar', data: { labels: statutoryKeys, datasets: [{ label: 'Statutory Costs', data: dataFor(statutoryKeys), backgroundColor: '#0d9488', borderRadius: 3 }] }, options: defaultChartOpts });
+      chartStructural = upsertChart(chartStructural, 'chart-structural', { type: 'bar', data: { labels: structuralKeys, datasets: [{ label: 'Structural Spend', data: dataFor(structuralKeys), backgroundColor: '#14b8a6', borderRadius: 3 }] }, options: defaultChartOpts });
+      chartFinishing = upsertChart(chartFinishing, 'chart-finishing', { type: 'doughnut', data: { labels: finishingKeys, datasets: [{ data: dataFor(finishingKeys), backgroundColor: ['#0d9488', '#14b8a6', '#5eead4', '#f97316', '#818cf8', '#f472b6'], borderWidth: 0 }] }, options: { ...defaultChartOpts, cutout: '60%' } });
+      chartLabor = upsertChart(chartLabor, 'chart-labor', { type: 'pie', data: { labels: ['Daily Wage', 'Maistry', 'Contractor'], datasets: [{ data: [dailyWage, maistry, contractor], backgroundColor: ['#14b8a6', '#818cf8', '#f97316'], borderWidth: 0 }] }, options: defaultChartOpts });
+      chartVendors = upsertChart(chartVendors, 'chart-vendors', { type: 'bar', data: { labels: vendorList.map(v => v[0]), datasets: [{ label: 'Spend', data: vendorList.map(v => v[1]), backgroundColor: '#818cf8', borderRadius: 3 }] }, options: { ...defaultChartOpts, indexAxis: 'y' } });
+      chartMaterialVariance = upsertChart(chartMaterialVariance, 'chart-material-variance', { type: 'bar', data: { labels: materialSubs, datasets: [{ label: 'Est.', data: matEst, backgroundColor: '#cbd5e1', borderRadius: 3 }, { label: 'Act.', data: matAct, backgroundColor: '#14b8a6', borderRadius: 3 }] }, options: defaultChartOpts });
+      chartPaymentMode = upsertChart(chartPaymentMode, 'chart-payment-mode', { type: 'pie', data: { labels: modeLabels, datasets: [{ data: modeValues, backgroundColor: ['#14b8a6', '#f97316', '#818cf8', '#cbd5e1'], borderWidth: 0 }] }, options: defaultChartOpts });
+      chartMonthlyTrend = upsertChart(chartMonthlyTrend, 'chart-monthly-trend', { type: 'line', data: { labels: months, datasets: [{ label: 'Monthly Spend', data: monthValues, borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,.1)', fill: true, tension: .3 }] }, options: defaultChartOpts });
+    } catch (err) { console.warn('Chart render warning:', err); }
+  }
+
+  const dashboardWidgets = [
+    ['cash-inflow', 'Cash Inflow'], ['budget-summary', 'Budget Summary'], ['realized-spend', 'Realized Spend'], ['contingency', 'Contingency'], ['secondary-kpis', 'Secondary KPIs'], ['charts', 'Charts']
+  ];
+
+  function initDashboardCustomizer() {
+    const holder = $('dashboard-customizer');
+    if (holder) {
+      holder.innerHTML = dashboardWidgets.map(([key, label]) => `<label class="flex items-center gap-1.5"><input type="checkbox" data-widget-toggle="${key}" checked />${label}</label>`).join('');
     }
-
-    document.querySelectorAll('#ledger thead th[data-sort]').forEach(th => {
-      th.addEventListener('click', () => {
-        const key = th.getAttribute('data-sort');
-        if (currentSort.key === key) currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
-        else { currentSort.key = key; currentSort.dir = 'asc'; }
-        document.querySelectorAll('#ledger thead th[data-sort]').forEach(h => { h.textContent = h.textContent.replace(/ ▲| ▼/g,''); });
-        th.textContent = th.textContent + (currentSort.dir === 'asc' ? ' ▲' : ' ▼');
-        renderLedger();
-      });
+    document.querySelectorAll('[data-widget-toggle]').forEach(checkbox => {
+      checkbox.addEventListener('change', () => { const key = checkbox.getAttribute('data-widget-toggle'); dashboardPrefs[key] = checkbox.checked; localStorage.setItem(LS_DASHBOARD_PREFS, JSON.stringify(dashboardPrefs)); applyDashboardPrefs(); if (key === 'charts' && checkbox.checked) renderDashboard(); });
     });
+    $('reset-dashboard-prefs')?.addEventListener('click', () => { dashboardPrefs = {}; localStorage.removeItem(LS_DASHBOARD_PREFS); applyDashboardPrefs(); renderDashboard(); });
+    applyDashboardPrefs();
+  }
 
-    // Image File Processing
-    $('expense-image-file')?.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          $('expense-image-data').value = ev.target.result;
-          $('image-preview').src = ev.target.result;
-          $('image-preview-container').classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-      }
+  function applyDashboardPrefs() {
+    document.querySelectorAll('[data-dashboard-widget]').forEach(widget => {
+      const key = widget.getAttribute('data-dashboard-widget');
+      const isVisible = dashboardPrefs[key] !== false;
+      widget.style.display = isVisible ? '' : 'none';
+      const checkbox = document.querySelector(`[data-widget-toggle="${key}"]`);
+      if (checkbox) checkbox.checked = isVisible;
     });
+  }
 
-    $('remove-image-btn')?.addEventListener('click', () => {
-      if ($('expense-image-file')) $('expense-image-file').value = '';
-      if ($('expense-image-data')) $('expense-image-data').value = '';
-      if ($('image-preview-container')) $('image-preview-container').classList.add('hidden');
-      if ($('image-preview')) $('image-preview').src = '';
+  function refreshAllViews() {
+    renderLedger();
+    renderReceipts();
+    renderAllocations();
+    applyDashboardPrefs();
+    renderDashboard();
+  }
+
+  function activateTab(tabName) {
+    const panels = { transactions: $('panel-transactions'), ledger: $('panel-ledger'), dashboard: $('panel-dashboard'), cashflow: $('panel-cashflow') };
+    Object.keys(panels).forEach(k => { if (!panels[k]) return; panels[k].classList.toggle('hidden', k !== tabName); panels[k].style.display = k === tabName ? 'block' : 'none'; });
+    document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('tab-active', b.getAttribute('data-tab') === tabName));
+    if (tabName === 'dashboard') { applyDashboardPrefs(); renderDashboard(); }
+    if (tabName === 'cashflow') { renderReceipts(); renderAllocations(); }
+    if (tabName === 'transactions' || tabName === 'ledger') renderLedger();
+  }
+
+  function toCSV(rows, headers) {
+    const esc = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    return [headers.map(esc).join(','), ...rows.map(r => headers.map(h => esc(r[h])).join(','))].join('\n');
+  }
+
+  function bindEvents() {
+    $('categories-tree-container')?.addEventListener('click', async e => {
+      if (e.target.classList.contains('del-cat-btn')) { const catIdx = Number(e.target.dataset.catIdx); const catName = categories[catIdx]?.name; if (catName && confirm(`Delete category "${catName}" and all its sub-categories?`)) { categories.splice(catIdx, 1); await saveState(); populateCategorySelects(); refreshAllViews(); } }
+      if (e.target.classList.contains('del-sub-btn')) { const catIdx = Number(e.target.dataset.catIdx); const subIdx = Number(e.target.dataset.subIdx); const subName = categories[catIdx]?.subs[subIdx]; if (subName && confirm(`Delete sub-category "${subName}"?`)) { categories[catIdx].subs.splice(subIdx, 1); await saveState(); populateCategorySelects(); refreshAllViews(); } }
     });
-
-    function resetExpenseForm() {
-      $('expense-form').reset();
-      $('expense-id').value = '';
-      if ($('expense-image-data')) $('expense-image-data').value = '';
-      if ($('image-preview-container')) $('image-preview-container').classList.add('hidden');
-      if ($('image-preview')) $('image-preview').src = '';
-      updateSubCategoryOptions();
-    }
-
-    // Expense Form Handlers
-    $('expense-form')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const id = $('expense-id').value;
-      const tx = {
-        id: id || uid(),
-        date: $('date').value,
-        description: $('description').value,
-        category: $('category').value,
-        subCategory: $('subCategory').value,
-        vendor: $('vendor').value,
-        estimated: Number($('estimated').value || 0),
-        actual: Number($('actual').value || 0),
-        paymentMode: $('paymentMode').value,
-        gstInvoice: $('gstInvoice').value,
-        status: $('status').value,
-        image: $('expense-image-data')?.value || ''
-      };
-      if (id) {
-        const idx = expenses.findIndex(x => x.id === id);
-        if (idx >= 0) expenses[idx] = tx;
-      } else expenses.push(tx);
-      saveState(); renderLedger(); resetExpenseForm();
-    });
-
-    $('reset-form')?.addEventListener('click', () => resetExpenseForm());
-
-    ledgerBody?.addEventListener('click', (e) => {
-      if (e.target.classList.contains('edit-btn')) {
-        const id = e.target.dataset.id; openEdit(id);
-      } else if (e.target.classList.contains('del-btn')) {
-        const id = e.target.dataset.id;
-        if (confirm('Delete this expense?')) { expenses = expenses.filter(x => x.id !== id); saveState(); renderLedger(); }
-      } else if (e.target.closest('.view-img-btn')) {
-        const btn = e.target.closest('.view-img-btn');
-        const imgSrc = btn.dataset.img;
-        if (imgSrc) showImageModal(imgSrc);
-      }
-    });
-
-    function openEdit(id) {
-      const tx = expenses.find(x => x.id === id); if (!tx) return;
-      activateTab('transactions');
-      $('expense-id').value = tx.id; $('date').value = tx.date; $('description').value = tx.description;
-      $('category').value = tx.category; updateSubCategoryOptions(); $('subCategory').value = tx.subCategory;
-      $('vendor').value = tx.vendor; $('estimated').value = tx.estimated; $('actual').value = tx.actual;
-      $('paymentMode').value = tx.paymentMode; $('gstInvoice').value = tx.gstInvoice; $('status').value = tx.status;
-      
-      if ($('expense-image-data')) $('expense-image-data').value = tx.image || '';
-      if (tx.image) {
-        if ($('image-preview')) $('image-preview').src = tx.image;
-        if ($('image-preview-container')) $('image-preview-container').classList.remove('hidden');
-      } else {
-        if ($('image-preview-container')) $('image-preview-container').classList.add('hidden');
-      }
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    // Modal Image Lightbox Handlers
-    function showImageModal(src) {
-      const modal = $('image-modal');
-      const modalImg = $('modal-image-display');
-      if (modal && modalImg) {
-        modalImg.src = src;
-        modal.classList.remove('hidden');
-      }
-    }
-    $('close-image-modal')?.addEventListener('click', () => $('image-modal')?.classList.add('hidden'));
-    $('image-modal')?.addEventListener('click', (e) => { if (e.target === $('image-modal')) $('image-modal')?.classList.add('hidden'); });
-
-    // Category Management Handlers
-    $('add-category')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      const name = $('new-category').value.trim();
-      if (!name) return alert('Enter category name');
-      if (categories.some(c => c.name === name)) return alert('Category exists');
-      categories.push({ name, subs: [] });
-      saveState(); populateCategorySelects(); $('new-category').value = '';
-    });
-
-    $('add-subcategory')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      const parent = $('parent-category').value;
-      const sub = $('new-subcategory').value.trim();
-      if (!parent || !sub) return alert('Select parent and enter sub-category');
-      const cat = categories.find(c => c.name === parent);
-      if (!cat) return;
-      if (cat.subs.includes(sub)) return alert('Sub-category exists');
-      cat.subs.push(sub);
-      saveState(); populateCategorySelects(); $('new-subcategory').value = '';
-    });
-
+    document.querySelectorAll('#ledger thead th[data-sort]').forEach(th => th.addEventListener('click', () => { const key = th.dataset.sort; if (currentSort.key === key) currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc'; else { currentSort.key = key; currentSort.dir = 'asc'; } renderLedger(); }));
+    $('expense-image-file')?.addEventListener('change', e => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = ev => { $('expense-image-data').value = ev.target.result; $('image-preview').src = ev.target.result; $('image-preview-container').classList.remove('hidden'); }; reader.readAsDataURL(file); });
+    $('remove-image-btn')?.addEventListener('click', () => { $('expense-image-file').value = ''; $('expense-image-data').value = ''; $('image-preview-container').classList.add('hidden'); $('image-preview').src = ''; });
+    $('expense-form')?.addEventListener('submit', async e => { e.preventDefault(); const id = $('expense-id').value; const tx = { id: id || uid(), date: $('date').value, description: $('description').value, category: $('category').value, subCategory: $('subCategory').value, vendor: $('vendor').value, estimated: Number($('estimated').value || 0), actual: Number($('actual').value || 0), units: $('units').value ? Number($('units').value) : '', perUnitCost: $('perUnitCost').value ? Number($('perUnitCost').value) : '', paymentMode: $('paymentMode').value, gstInvoice: $('gstInvoice').value, status: $('status').value, image: $('expense-image-data').value || '' }; if (id) { const idx = expenses.findIndex(x => x.id === id); if (idx >= 0) expenses[idx] = tx; } else expenses.push(tx); await saveState(); refreshAllViews(); resetExpenseForm(); });
+    $('reset-form')?.addEventListener('click', resetExpenseForm);
+    $('ledger-body')?.addEventListener('click', async e => { if (e.target.classList.contains('edit-btn')) openEdit(e.target.dataset.id); else if (e.target.classList.contains('del-btn')) { if (confirm('Delete this expense?')) { expenses = expenses.filter(x => x.id !== e.target.dataset.id); await saveState(); refreshAllViews(); } } else if (e.target.closest('.view-img-btn')) showImageModal(e.target.closest('.view-img-btn').dataset.img); });
+    $('close-image-modal')?.addEventListener('click', () => $('image-modal').classList.add('hidden'));
+    $('image-modal')?.addEventListener('click', e => { if (e.target === $('image-modal')) $('image-modal').classList.add('hidden'); });
+    $('add-category')?.addEventListener('click', async e => { e.preventDefault(); const name = $('new-category').value.trim(); if (!name) return alert('Enter category name'); if (categories.some(c => c.name === name)) return alert('Category exists'); categories.push({ name, subs: [] }); await saveState(); populateCategorySelects(); $('new-category').value = ''; refreshAllViews(); });
+    $('add-subcategory')?.addEventListener('click', async e => { e.preventDefault(); const parent = $('parent-category').value; const sub = $('new-subcategory').value.trim(); if (!parent || !sub) return alert('Select parent and enter sub-category'); const cat = categories.find(c => c.name === parent); if (!cat) return; if (cat.subs.includes(sub)) return alert('Sub-category exists'); cat.subs.push(sub); await saveState(); populateCategorySelects(); $('new-subcategory').value = ''; refreshAllViews(); });
     $('category')?.addEventListener('change', updateSubCategoryOptions);
-
-    // Filters
-    $('applyFilters')?.addEventListener('click', () => renderLedger());
-    $('clearFilters')?.addEventListener('click', () => { $('searchText').value=''; $('filterCategory').value=''; $('filterStatus').value=''; $('filterMode').value=''; renderLedger(); });
-
-    // Receipts & Allocations Handlers
-    const receiptsBody = $('receipts-body');
-    const allocBody = $('alloc-body');
-
-    function populateReceiptSelect() {
-      const sel = $('alloc-receipt');
-      if (!sel) return;
-      sel.innerHTML = '';
-      receipts.forEach(r => {
-        const opt = document.createElement('option'); opt.value = r.id; opt.textContent = `${r.date} • ${r.client} • ${formatINR(r.amount)}`; sel.appendChild(opt);
-      });
-    }
-
-    function renderReceipts() {
-      if (!receiptsBody) return;
-      receiptsBody.innerHTML = '';
-      receipts.forEach(r => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${r.date}</td>
-          <td class="font-medium">${escapeHtml(r.client)}</td>
-          <td class="font-semibold text-teal-600">${formatINR(r.amount)}</td>
-          <td>${escapeHtml(r.mode)}</td>
-          <td class="text-slate-500">${escapeHtml(r.ref)}</td>
-          <td>
-            <button data-id="${r.id}" class="edit-receipt px-2 py-0.5 rounded bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium text-[0.65rem] border border-yellow-200" type="button">Edit</button>
-            <button data-id="${r.id}" class="del-receipt px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 font-medium text-[0.65rem] border border-red-200 ml-1" type="button">Del</button>
-          </td>
-        `;
-        receiptsBody.appendChild(tr);
-      });
-      if ($('receipt-count')) $('receipt-count').textContent = receipts.length;
-      populateReceiptSelect();
-      renderAllocations();
-    }
-
-    function renderAllocations() {
-      if (!allocBody) return;
-      allocBody.innerHTML = '';
-      allocations.forEach(a => {
-        const src = receipts.find(r => r.id === a.receiptId);
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${a.date}</td>
-          <td class="font-medium">${escapeHtml(a.member)}</td>
-          <td class="font-semibold text-indigo-600">${formatINR(a.amount)}</td>
-          <td class="text-slate-500">${escapeHtml(a.purpose)}</td>
-          <td>${src ? escapeHtml(src.client) : '—'}</td>
-          <td>
-            <button data-id="${a.id}" class="edit-alloc px-2 py-0.5 rounded bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium text-[0.65rem] border border-yellow-200" type="button">Edit</button>
-            <button data-id="${a.id}" class="del-alloc px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 font-medium text-[0.65rem] border border-red-200 ml-1" type="button">Del</button>
-          </td>
-        `;
-        allocBody.appendChild(tr);
-      });
-      if ($('alloc-count')) $('alloc-count').textContent = allocations.length;
-    }
-
-    $('receipt-form')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const id = $('receipt-id').value;
-      const r = {
-        id: id || uid(),
-        date: $('receipt-date').value,
-        client: $('receipt-client').value,
-        amount: Number($('receipt-amount').value || 0),
-        mode: $('receipt-mode').value,
-        ref: $('receipt-ref').value,
-        notes: $('receipt-notes').value
-      };
-      if (id) {
-        const idx = receipts.findIndex(x => x.id === id);
-        if (idx >= 0) receipts[idx] = r;
-      } else receipts.push(r);
-      saveState(); renderReceipts(); $('receipt-form').reset(); $('receipt-id').value = '';
-    });
-
+    $('applyFilters')?.addEventListener('click', renderLedger);
+    $('searchText')?.addEventListener('input', renderLedger);
+    $('clearFilters')?.addEventListener('click', () => { $('searchText').value = ''; $('filterCategory').value = ''; $('filterStatus').value = ''; $('filterMode').value = ''; renderLedger(); });
+    $('receipt-form')?.addEventListener('submit', async e => { e.preventDefault(); const id = $('receipt-id').value; const r = { id: id || uid(), date: $('receipt-date').value, client: $('receipt-client').value, amount: Number($('receipt-amount').value || 0), mode: $('receipt-mode').value, ref: $('receipt-ref').value, notes: $('receipt-notes').value }; if (id) { const idx = receipts.findIndex(x => x.id === id); if (idx >= 0) receipts[idx] = r; } else receipts.push(r); await saveState(); refreshAllViews(); $('receipt-form').reset(); $('receipt-id').value = ''; });
     $('reset-receipt')?.addEventListener('click', () => { $('receipt-form').reset(); $('receipt-id').value = ''; });
-
-    receiptsBody?.addEventListener('click', (e) => {
-      if (e.target.classList.contains('edit-receipt')) {
-        const id = e.target.dataset.id; const r = receipts.find(x => x.id === id); if (!r) return;
-        $('receipt-id').value = r.id; $('receipt-date').value = r.date; $('receipt-client').value = r.client; $('receipt-amount').value = r.amount; $('receipt-mode').value = r.mode; $('receipt-ref').value = r.ref; $('receipt-notes').value = r.notes;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else if (e.target.classList.contains('del-receipt')) {
-        const id = e.target.dataset.id; if (confirm('Delete receipt?')) { receipts = receipts.filter(x => x.id !== id); allocations = allocations.filter(a => a.receiptId !== id); saveState(); renderReceipts(); }
-      }
-    });
-
-    $('allocation-form')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const id = $('alloc-id').value;
-      const a = {
-        id: id || uid(),
-        date: new Date().toISOString().slice(0,10),
-        receiptId: $('alloc-receipt').value,
-        member: $('alloc-member').value,
-        amount: Number($('alloc-amount').value || 0),
-        purpose: $('alloc-purpose').value
-      };
-      if (a.amount <= 0) return alert('Enter allocation amount');
-      if (id) {
-        const idx = allocations.findIndex(x => x.id === id);
-        if (idx >= 0) allocations[idx] = a;
-      } else allocations.push(a);
-      saveState(); renderAllocations(); $('allocation-form').reset(); $('alloc-id').value = '';
-    });
-
+    $('receipts-body')?.addEventListener('click', async e => { if (e.target.classList.contains('edit-receipt')) { const r = receipts.find(x => x.id === e.target.dataset.id); if (!r) return; $('receipt-id').value = r.id; $('receipt-date').value = r.date; $('receipt-client').value = r.client; $('receipt-amount').value = r.amount; $('receipt-mode').value = r.mode; $('receipt-ref').value = r.ref; $('receipt-notes').value = r.notes; window.scrollTo({ top: 0, behavior: 'smooth' }); } else if (e.target.classList.contains('del-receipt')) { if (confirm('Delete receipt?')) { const id = e.target.dataset.id; receipts = receipts.filter(x => x.id !== id); allocations = allocations.filter(a => a.receiptId !== id); await saveState(); refreshAllViews(); } } });
+    $('allocation-form')?.addEventListener('submit', async e => { e.preventDefault(); const id = $('alloc-id').value; const a = { id: id || uid(), date: today(), receiptId: $('alloc-receipt').value, member: $('alloc-member').value, amount: Number($('alloc-amount').value || 0), purpose: $('alloc-purpose').value }; if (a.amount <= 0) return alert('Enter allocation amount'); if (id) { const idx = allocations.findIndex(x => x.id === id); if (idx >= 0) allocations[idx] = a; } else allocations.push(a); await saveState(); refreshAllViews(); $('allocation-form').reset(); $('alloc-id').value = ''; });
     $('reset-alloc')?.addEventListener('click', () => { $('allocation-form').reset(); $('alloc-id').value = ''; });
-
-    allocBody?.addEventListener('click', (e) => {
-      if (e.target.classList.contains('edit-alloc')) {
-        const id = e.target.dataset.id; const a = allocations.find(x => x.id === id); if (!a) return;
-        $('alloc-id').value = a.id; $('alloc-receipt').value = a.receiptId; $('alloc-member').value = a.member; $('alloc-amount').value = a.amount; $('alloc-purpose').value = a.purpose;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else if (e.target.classList.contains('del-alloc')) {
-        const id = e.target.dataset.id; if (confirm('Delete allocation?')) { allocations = allocations.filter(x => x.id !== id); saveState(); renderAllocations(); }
-      }
-    });
-
-    // CSV & JSON Import/Export
-    function toCSV(rows, headers) {
-      const esc = (v) => {
-        if (v === null || v === undefined) return '';
-        const s = String(v).replace(/"/g, '""');
-        return `"${s}"`;
-      };
-      const lines = [];
-      lines.push(headers.map(h => esc(h)).join(','));
-      rows.forEach(r => {
-        const row = headers.map(h => esc(r[h] !== undefined ? r[h] : ''));
-        lines.push(row.join(','));
-      });
-      return lines.join('\n');
-    }
-
-    $('btn-export-csv')?.addEventListener('click', () => {
-      const expHeaders = ['id','date','description','category','subCategory','vendor','estimated','actual','paymentMode','status','gstInvoice','image'];
-      const expCSV = toCSV(expenses, expHeaders);
-      const recHeaders = ['id','date','client','amount','mode','ref','notes'];
-      const recCSV = toCSV(receipts, recHeaders);
-      const allocHeaders = ['id','date','receiptId','member','amount','purpose'];
-      const allocCSV = toCSV(allocations, allocHeaders);
-      const combined = `---EXPENSES---\n${expCSV}\n\n---RECEIPTS---\n${recCSV}\n\n---ALLOCATIONS---\n${allocCSV}`;
-      const blob = new Blob([combined], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'axon-data.csv';
-      a.click();
-    });
-
-    $('btn-export')?.addEventListener('click', async () => {
-      const payload = { expenses, categories, buildArea, receipts, allocations };
-      const json = JSON.stringify(payload, null, 2);
-      if (navigator.share) {
-        try {
-          const blob = new Blob([json], { type: 'application/json' });
-          const file = new File([blob], 'axon-expenses.json', { type: 'application/json' });
-          await navigator.share({ files: [file], title: 'Axon Expenses', text: 'Axon Constructions expense data' });
-          return;
-        } catch (err) { /* fallback */ }
-      }
-      try { await navigator.clipboard.writeText(json); alert('JSON copied to clipboard.'); }
-      catch (err) {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-        a.download = 'axon-expenses.json';
-        a.click();
-      }
-    });
-
+    $('alloc-body')?.addEventListener('click', async e => { if (e.target.classList.contains('edit-alloc')) { const a = allocations.find(x => x.id === e.target.dataset.id); if (!a) return; $('alloc-id').value = a.id; $('alloc-receipt').value = a.receiptId; $('alloc-member').value = a.member; $('alloc-amount').value = a.amount; $('alloc-purpose').value = a.purpose; window.scrollTo({ top: 0, behavior: 'smooth' }); } else if (e.target.classList.contains('del-alloc')) { if (confirm('Delete allocation?')) { allocations = allocations.filter(x => x.id !== e.target.dataset.id); await saveState(); refreshAllViews(); } } });
+    $('btn-export-csv')?.addEventListener('click', () => { const expHeaders = ['id','date','description','category','subCategory','vendor','estimated','actual','units','perUnitCost','paymentMode','status','gstInvoice','image']; const recHeaders = ['id','date','client','amount','mode','ref','notes']; const allocHeaders = ['id','date','receiptId','member','amount','purpose']; const combined = `---EXPENSES---\n${toCSV(expenses, expHeaders)}\n\n---RECEIPTS---\n${toCSV(receipts, recHeaders)}\n\n---ALLOCATIONS---\n${toCSV(allocations, allocHeaders)}`; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([combined], { type: 'text/csv' })); a.download = 'axon-data.csv'; a.click(); });
+    $('btn-export')?.addEventListener('click', async () => { const json = JSON.stringify({ expenses, categories, buildArea, receipts, allocations }, null, 2); try { await navigator.clipboard.writeText(json); alert('JSON copied to clipboard.'); } catch (err) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = 'axon-expenses.json'; a.click(); } });
     $('btn-import')?.addEventListener('click', () => $('file-import').click());
-    $('file-import')?.addEventListener('change', (e) => {
-      const f = e.target.files[0]; if (!f) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const data = JSON.parse(ev.target.result);
-          if (!confirm('Import will replace current local data. Continue?')) return;
-          expenses = data.expenses || [];
-          categories = data.categories || defaultCategories;
-          buildArea = data.buildArea || buildArea;
-          receipts = data.receipts || [];
-          allocations = data.allocations || [];
-          if ($('build-area')) $('build-area').value = buildArea;
-          saveState(); populateCategorySelects(); renderLedger(); renderReceipts(); renderAllocations();
-        } catch (err) { alert('Invalid JSON'); }
-      };
-      reader.readAsText(f);
-    });
+    $('file-import')?.addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; const reader = new FileReader(); reader.onload = async ev => { try { const data = JSON.parse(ev.target.result); if (!confirm('Import will replace current local data. Continue?')) return; applyPayload({ expenses: data.expenses || [], categories: data.categories || structuredClone(defaultCategories), buildArea: data.buildArea || buildArea, receipts: data.receipts || [], allocations: data.allocations || [] }); await saveState(); } catch (err) { alert('Invalid JSON'); } }; reader.readAsText(f); });
+    document.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', ev => { ev.preventDefault(); const tab = btn.dataset.tab; activateTab(tab); try { history.pushState(null, '', '#' + tab); } catch(e) { location.hash = tab; } }));
+  }
 
-    // Dashboard Charts & KPIs
-    let chartStatutory, chartStructural, chartFinishing, chartLabor, chartVendors, chartMaterialVariance, chartPaymentMode, chartMonthlyTrend;
+  async function initApp() {
+    loadState();
+    populateCategorySelects();
+    initDashboardCustomizer();
+    bindEvents();
+    if ($('date')) $('date').value = today();
+    if ($('receipt-date')) $('receipt-date').value = today();
+    refreshAllViews();
+    initRealtime();
+    await loadCloudState();
+    const validTabs = ['transactions', 'ledger', 'dashboard', 'cashflow'];
+    const hash = location.hash.replace('#', '');
+    activateTab(validTabs.includes(hash) ? hash : 'transactions');
+  }
 
-    function computeGSTForTx(tx) {
-      const sub = (tx.subCategory || '').toLowerCase();
-      const finishingKeywords = ['floor', 'granite', 'teak', 'painting', 'modular', 'sanitary', 'tiles', 'kitchen'];
-      const isFinishing = finishingKeywords.some(k => sub.includes(k));
-      if (!tx.gstInvoice) return 0;
-      const rate = isFinishing ? 0.12 : 0.18;
-      return Number(tx.actual || 0) * rate;
-    }
-
-    function renderDashboard() {
-      // Cash Inflow KPI Calculation
-      const totalInflow = receipts.reduce((s, r) => s + Number(r.amount || 0), 0);
-      if ($('kpi-cash-inflow')) $('kpi-cash-inflow').textContent = formatINR(totalInflow);
-
-      const totalEstimated = expenses.reduce((s,e) => s + Number(e.estimated || 0), 0);
-      const totalActual = expenses.reduce((s,e) => s + Number(e.actual || 0), 0);
-      const variance = totalEstimated - totalActual;
-
-      const netBalance = totalInflow - totalActual;
-      if ($('kpi-net-balance')) $('kpi-net-balance').textContent = `Net: ${formatINR(netBalance)}`;
-
-      if ($('kpi-estimated')) $('kpi-estimated').textContent = formatINR(totalEstimated);
-      if ($('kpi-actual')) $('kpi-actual').textContent = formatINR(totalActual);
-      if ($('kpi-variance')) {
-        $('kpi-variance').textContent = `Variance: ${formatINR(variance)} (${variance >= 0 ? 'Under budget' : 'Over budget'})`;
-        $('kpi-variance').className = variance >= 0 ? 'text-teal-400 font-semibold' : 'text-red-400 font-semibold';
-      }
-
-      if ($('kpi-spent')) $('kpi-spent').textContent = formatINR(totalActual);
-
-      const contingencyReserve = totalEstimated * 0.10;
-      const contingencyUsed = Math.max(0, totalActual - (totalEstimated - contingencyReserve));
-      const contingencyPct = contingencyReserve ? Math.min(100, (contingencyUsed / contingencyReserve) * 100) : 0;
-      if ($('contingency-bar')) $('contingency-bar').style.width = contingencyPct + '%';
-      if ($('contingency-text')) $('contingency-text').textContent = `Used: ${formatINR(contingencyUsed)} of ${formatINR(contingencyReserve)} (${contingencyPct.toFixed(1)}%)`;
-
-      const cashOut = expenses.filter(e => e.status === 'Paid').reduce((s,e) => s + Number(e.actual || 0), 0);
-      const pendingCommitted = expenses.filter(e => e.status !== 'Paid').reduce((s,e) => s + Number(e.actual || 0), 0);
-      if ($('kpi-cash-out')) $('kpi-cash-out').textContent = formatINR(cashOut);
-      if ($('kpi-pending')) $('kpi-pending').textContent = formatINR(pendingCommitted);
-
-      const totalGST = expenses.reduce((s,e) => s + computeGSTForTx(e), 0);
-      if ($('kpi-gst')) $('kpi-gst').textContent = formatINR(totalGST);
-
-      const statutoryKeys = ['BBMP Plan Sanction','BESCOM Deposit','BWSSB Deposit','Structural Engineer Fees'];
-      const statutoryData = statutoryKeys.map(k => expenses.filter(e => e.subCategory === k).reduce((s,e) => s + Number(e.actual || 0), 0));
-
-      const structuralKeys = ['M-Sand','P-Sand','Cement','TMT Bars','Bricks/Blocks','Foundation Excavation'];
-      const structuralData = structuralKeys.map(k => expenses.filter(e => e.subCategory === k).reduce((s,e) => s + Number(e.actual || 0), 0));
-
-      const finishingKeys = ['Flooring (Tiles)','Granite','Teak Wood Frames','Painting','Modular Kitchen','Sanitary Ware'];
-      const finishingData = finishingKeys.map(k => expenses.filter(e => e.subCategory === k).reduce((s,e) => s + Number(e.actual || 0), 0));
-
-      const dailyWage = expenses.filter(e => e.subCategory === 'Daily Wage Coolie').reduce((s,e) => s + Number(e.actual || 0), 0);
-      const maistry = expenses.filter(e => e.subCategory === 'Maistry Payments').reduce((s,e) => s + Number(e.actual || 0), 0);
-      const contractor = expenses.filter(e => e.subCategory === 'Contractor Milestone' || e.subCategory === 'Foundation Excavation').reduce((s,e) => s + Number(e.actual || 0), 0);
-
-      const vendorMap = {};
-      expenses.forEach(e => { const v = e.vendor || 'Unknown'; vendorMap[v] = (vendorMap[v] || 0) + Number(e.actual || 0); });
-      const vendorList = Object.entries(vendorMap).sort((a,b) => b[1]-a[1]).slice(0,5);
-      const vendorLabels = vendorList.map(v => v[0]); const vendorValues = vendorList.map(v => v[1]);
-
-      const materialSubs = ['M-Sand','P-Sand','Cement','TMT Bars','Bricks/Blocks'];
-      const matEst = materialSubs.map(k => expenses.filter(e => e.subCategory === k).reduce((s,e) => s + Number(e.estimated || 0), 0));
-      const matAct = materialSubs.map(k => expenses.filter(e => e.subCategory === k).reduce((s,e) => s + Number(e.actual || 0), 0));
-
-      const costPerSqFt = buildArea ? (totalActual / buildArea) : 0;
-      if ($('kpi-cost-per-sqft')) $('kpi-cost-per-sqft').textContent = `${formatINR(costPerSqFt.toFixed(2))}/sq ft`;
-
-      const categoryBurn = categories.map(c => {
-        const est = expenses.filter(e => e.category === c.name).reduce((s,e) => s + Number(e.estimated || 0), 0);
-        const act = expenses.filter(e => e.category === c.name).reduce((s,e) => s + Number(e.actual || 0), 0);
-        const pct = est ? Math.min(100, (act/est)*100) : 0;
-        return { name: c.name, est, act, pct };
-      });
-
-      const modes = ['UPI','Cash','Bank Transfer','Cheque'];
-      const modeCounts = modes.map(m => expenses.filter(e => e.paymentMode === m).reduce((s,e) => s + Number(e.actual || 0), 0));
-
-      const totalWithInvoice = expenses.filter(e => e.gstInvoice && e.gstInvoice.trim() !== '').length;
-      const invoiceRate = expenses.length ? Math.round((totalWithInvoice / expenses.length) * 100) : 0;
-      if ($('kpi-invoice-rate')) $('kpi-invoice-rate').textContent = invoiceRate + '%';
-
-      const monthlyMap = {};
-      expenses.forEach(e => { const key = monthKey(e.date); monthlyMap[key] = (monthlyMap[key] || 0) + Number(e.actual || 0); });
-      const months = Object.keys(monthlyMap).sort();
-      const monthValues = months.map(m => monthlyMap[m]);
-
-      const burnBars = $('burn-bars'); if (burnBars) { burnBars.innerHTML = ''; categoryBurn.forEach(cb => {
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = `<div class="flex justify-between text-[0.68rem] font-medium text-slate-700 mb-0.5"><div>${escapeHtml(cb.name)}</div><div>${formatINR(cb.act)} / ${formatINR(cb.est)}</div></div><div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden"><div style="width:${cb.pct}%; background:linear-gradient(90deg,var(--teal-1),var(--teal-2)); height:100%"></div></div>`;
-        burnBars.appendChild(wrapper);
-      }); }
-
-      const defaultChartOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 10, font: { size: 10 } } } } };
-
-      function upsertChart(ref, ctxId, cfg) {
-        const el = document.getElementById(ctxId);
-        if (!el) return null;
-        const ctx = el.getContext('2d');
-        if (ref && ref.destroy) ref.destroy();
-        return new Chart(ctx, cfg);
-      }
-
-      try {
-        chartStatutory = upsertChart(chartStatutory, 'chart-statutory', { type: 'bar', data: { labels: statutoryKeys, datasets: [{ label: 'Statutory Costs', data: statutoryData, backgroundColor: '#0d9488', borderRadius: 3 }] }, options: { ...defaultChartOpts, scales:{ y:{ ticks:{ font:{size:9}, callback: v => '₹' + (v/1000) + 'k' } }, x:{ ticks:{ font:{size:9} } } } } });
-        chartStructural = upsertChart(chartStructural, 'chart-structural', { type: 'bar', data: { labels: structuralKeys, datasets: [{ label: 'Structural Spend', data: structuralData, backgroundColor: '#14b8a6', borderRadius: 3 }] }, options: { ...defaultChartOpts, scales:{ y:{ ticks:{ font:{size:9}, callback: v => '₹' + (v/1000) + 'k' } }, x:{ ticks:{ font:{size:9} } } } } });
-        chartFinishing = upsertChart(chartFinishing, 'chart-finishing', { type: 'doughnut', data: { labels: finishingKeys, datasets: [{ label: 'Finishing', data: finishingData, backgroundColor: ['#0d9488','#14b8a6','#5eead4','#f97316','#818cf8','#f472b6'], borderWidth: 0 }] }, options: { ...defaultChartOpts, cutout: '60%' } });
-        chartLabor = upsertChart(chartLabor, 'chart-labor', { type: 'pie', data: { labels: ['Daily Wage','Maistry','Contractor'], datasets: [{ data: [dailyWage, maistry, contractor], backgroundColor: ['#14b8a6','#818cf8','#f97316'], borderWidth: 0 }] }, options: defaultChartOpts });
-        chartVendors = upsertChart(chartVendors, 'chart-vendors', { type: 'bar', data: { labels: vendorLabels, datasets: [{ label: 'Spend', data: vendorValues, backgroundColor: '#818cf8', borderRadius: 3 }] }, options: { ...defaultChartOpts, indexAxis: 'y', scales:{ x:{ ticks:{ font:{size:9}, callback: v => '₹' + (v/1000) + 'k' } }, y:{ ticks:{ font:{size:9} } } } } });
-        chartMaterialVariance = upsertChart(chartMaterialVariance, 'chart-material-variance', { type: 'bar', data: { labels: materialSubs, datasets: [ { label: 'Est.', data: matEst, backgroundColor: '#cbd5e1', borderRadius: 3 }, { label: 'Act.', data: matAct, backgroundColor: '#14b8a6', borderRadius: 3 } ] }, options: { ...defaultChartOpts, scales:{ y:{ ticks:{ font:{size:9}, callback: v => '₹' + (v/1000) + 'k' } }, x:{ ticks:{ font:{size:9} } } } } });
-        chartPaymentMode = upsertChart(chartPaymentMode, 'chart-payment-mode', { type: 'pie', data: { labels: modes, datasets: [{ data: modeCounts, backgroundColor: ['#14b8a6','#f97316','#818cf8','#cbd5e1'], borderWidth: 0 }] }, options: defaultChartOpts });
-        chartMonthlyTrend = upsertChart(chartMonthlyTrend, 'chart-monthly-trend', { type: 'line', data: { labels: months, datasets: [{ label: 'Monthly Spend', data: monthValues, borderColor: '#0d9488', backgroundColor: 'rgba(13, 148, 136, 0.1)', fill:true, tension: 0.3 }] }, options: { ...defaultChartOpts, scales:{ y:{ ticks:{ font:{size:9}, callback: v => '₹' + (v/1000) + 'k' } }, x:{ ticks:{ font:{size:9} } } } } });
-      } catch (err) { console.warn("Chart render warning", err); }
-    }
-
-    // TAB ROUTING
-    function activateTab(tabName) {
-      const panels = { 
-        transactions: $('panel-transactions'), 
-        ledger: $('panel-ledger'), 
-        dashboard: $('panel-dashboard'), 
-        cashflow: $('panel-cashflow') 
-      };
-      
-      Object.keys(panels).forEach(k => { 
-        if (!panels[k]) return; 
-        if (k === tabName) {
-          panels[k].classList.remove('hidden'); 
-          panels[k].style.display = 'block';
-        } else {
-          panels[k].classList.add('hidden'); 
-          panels[k].style.display = 'none';
-        }
-      });
-      
-      document.querySelectorAll('[data-tab]').forEach(b => { 
-        if (b.getAttribute('data-tab') === tabName) {
-          b.classList.add('tab-active'); 
-        } else {
-          b.classList.remove('tab-active'); 
-        }
-      });
-      
-      if (tabName === 'dashboard') renderDashboard();
-      if (tabName === 'cashflow') renderReceipts();
-      if (tabName === 'transactions' || tabName === 'ledger') renderLedger();
-    }
-
-    function initApp() {
-      populateCategorySelects();
-      loadCloudState();
-
-      document.querySelectorAll('[data-tab]').forEach(btn => {
-        btn.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          const tab = btn.getAttribute('data-tab');
-          activateTab(tab);
-          try {
-            if (window.history && window.history.pushState) window.history.pushState(null, '', '#' + tab);
-            else window.location.hash = tab;
-          } catch(e) {}
-        });
-      });
-
-      const validTabs = ['transactions','ledger','dashboard','cashflow'];
-      let initialTab = 'transactions';
-      try {
-        const hash = window.location.hash.replace('#', '');
-        if (validTabs.includes(hash)) initialTab = hash;
-      } catch(e) {}
-
-      activateTab(initialTab);
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initApp);
-    } else {
-      initApp();
-    }
-
-    window.addEventListener('beforeunload', () => saveState());
-  </script>
-  
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp); else initApp();
+  window.addEventListener('beforeunload', saveLocalState);
+</script>
 </body>
 </html>
