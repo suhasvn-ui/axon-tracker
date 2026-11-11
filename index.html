@@ -78,13 +78,22 @@
         </div>
         <div class="flex items-center gap-1.5 text-[0.7rem] flex-wrap">
           <button id="theme-toggle" class="px-2 py-0.5 rounded bg-teal-600/80 hover:bg-teal-600 transition-colors text-[0.65rem] font-medium text-white flex items-center gap-1" type="button"><span id="theme-icon">🌙</span> <span id="theme-text">Dark Mode</span></button>
-          <button id="btn-export" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">JSON</button>
-          <button id="btn-export-csv" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">CSV</button>
-          <button id="btn-import" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">Import</button>
-          <input id="file-import" type="file" accept="application/json" class="hidden" />
+          <div id="project-tools" class="hidden items-center gap-1.5">
+            <button id="btn-export" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">JSON</button>
+            <button id="btn-export-csv" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">CSV</button>
+            <button id="btn-import" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">Import</button>
+            <input id="file-import" type="file" accept="application/json" class="hidden" />
+          </div>
         </div>
       </div>
-      <nav id="main-nav" class="flex items-center gap-1 overflow-x-auto pb-0.5 pt-0.5" aria-label="Main navigation">
+      <div id="project-context" class="hidden items-center justify-between gap-2 flex-wrap">
+        <div class="flex items-center gap-2 min-w-0">
+          <button id="back-to-projects" class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-[0.7rem] font-medium" type="button">← Projects</button>
+          <span id="active-project-name" class="text-sm font-semibold text-white truncate"></span>
+        </div>
+        <span id="sync-status" class="text-[0.65rem] text-slate-300" role="status" aria-live="polite">Checking cloud sync…</span>
+      </div>
+      <nav id="main-nav" class="hidden items-center gap-1 overflow-x-auto pb-0.5 pt-0.5" aria-label="Main navigation">
         <button class="nav-btn tab-active" data-tab="transactions" type="button">Expense Form</button>
         <button class="nav-btn" data-tab="ledger" type="button">Master Ledger & Filters</button>
         <button class="nav-btn" data-tab="dashboard" type="button">Dashboard KPIs</button>
@@ -96,6 +105,22 @@
   </header>
 
   <main class="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-4 md:p-5 overflow-x-hidden">
+    <section id="projects-home" class="space-y-4">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold text-slate-800">Your projects</h1>
+        <p class="mt-1 text-sm text-slate-500">Choose a project to manage its expenses, cashflow, tasks, and workbook.</p>
+      </div>
+      <div class="card">
+        <h2 class="text-sm font-bold text-slate-800 mb-2">Create a project</h2>
+        <form id="create-project-form" class="flex flex-col sm:flex-row gap-2">
+          <input id="new-project-name" type="text" maxlength="80" class="w-full sm:max-w-md" placeholder="Project name" required />
+          <button type="submit" class="px-3.5 py-1.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs">Create project</button>
+        </form>
+        <p id="project-list-status" class="mt-2 text-xs text-slate-500" role="status" aria-live="polite"></p>
+      </div>
+      <div id="project-list" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3" aria-live="polite"></div>
+    </section>
+    <div id="project-workspace" class="hidden">
     <section id="panel-transactions" class="panel">
       <div class="flex items-center justify-between mb-3"><h2 class="text-base sm:text-lg font-bold text-slate-800">Expense & Schedule Setup</h2></div>
       <div class="grid xl:grid-cols-2 gap-3.5 sm:gap-5">
@@ -324,6 +349,7 @@
         </div>
       </div>
     </section>
+    </div>
   </main>
 
   <div id="image-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4"><div class="bg-white rounded-xl max-w-2xl w-full p-4 relative shadow-2xl max-h-[90vh] flex flex-col"><div class="flex justify-between items-center pb-2.5 border-b border-slate-100"><h3 class="font-bold text-slate-800 text-sm">Image Preview</h3><button id="close-image-modal" type="button" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-sm transition-colors">&times;</button></div><div class="mt-3 flex-1 overflow-auto flex items-center justify-center bg-slate-50 rounded-lg p-2 border border-slate-200"><img id="modal-image-display" src="" class="max-h-[70vh] max-w-full object-contain rounded" alt="Expense Image" /></div></div></div>
@@ -368,11 +394,13 @@
   const LS_WORKBOOK = 'axon_workbook_v1';
   const LS_DASHBOARD_PREFS = 'axon_dashboard_prefs_v1';
   const LS_THEME = 'axon_theme_v1';
-  const CLOUD_ROW_ID = 'main';
+  const LS_PROJECTS = 'axon_projects_v1';
+  const LEGACY_PROJECT_ID = 'main';
 
   const $ = id => document.getElementById(id);
   const uid = () => 'id-' + Math.random().toString(36).slice(2, 9);
   const today = () => new Date().toISOString().slice(0, 10);
+  const projectStorageKey = (key, projectId = activeProjectId) => `${key}::${projectId}`;
 
   function escapeHtml(s) {
     if (s === null || s === undefined) return '';
@@ -433,33 +461,207 @@
   let tasks = [];
   let workbookPages = [];
   let activePageId = null;
+  let activeProjectId = null;
+  let activeProjectName = '';
+  let projects = [];
+  let realtimeChannel = null;
+  let realtimeStatus = 'CONNECTING';
   let ganttZoomLevel = 100;
   let dashboardPrefs = {};
   let isApplyingRemoteUpdate = false;
   let currentSort = { key: 'date', dir: 'desc' };
   let chartStatutory, chartStructural, chartFinishing, chartLabor, chartVendors, chartMaterialVariance, chartPaymentMode, chartMonthlyTrend;
 
-  function loadState() {
-    try { categories = JSON.parse(localStorage.getItem(LS_CAT)) || structuredClone(defaultCategories); } catch(e) { categories = structuredClone(defaultCategories); }
-    try { expenses = JSON.parse(localStorage.getItem(LS_KEY)) || structuredClone(mockTransactions); } catch(e) { expenses = structuredClone(mockTransactions); }
-    try { receipts = JSON.parse(localStorage.getItem(LS_RECEIPTS)) || [{ id: uid(), date: '2026-01-01', client: 'Mr. Rao', amount: 500000, mode: 'Bank Transfer', ref: 'Advance-001', notes: 'Project advance' }]; } catch(e) { receipts = []; }
-    try { allocations = JSON.parse(localStorage.getItem(LS_ALLOCS)) || []; } catch(e) { allocations = []; }
-    try { tasks = JSON.parse(localStorage.getItem(LS_TASKS)) || structuredClone(mockTasks); } catch(e) { tasks = structuredClone(mockTasks); }
-    try { workbookPages = JSON.parse(localStorage.getItem(LS_WORKBOOK)) || structuredClone(mockPages); } catch(e) { workbookPages = structuredClone(mockPages); }
-    try { dashboardPrefs = JSON.parse(localStorage.getItem(LS_DASHBOARD_PREFS)) || {}; } catch(e) { dashboardPrefs = {}; }
-    buildArea = Number(localStorage.getItem(LS_AREA)) || buildArea;
-    if (workbookPages.length) activePageId = workbookPages[0].id;
+  function readProjectJson(key, projectId, fallback) {
+    let stored = localStorage.getItem(projectStorageKey(key, projectId));
+    if (stored === null && projectId === LEGACY_PROJECT_ID) stored = localStorage.getItem(key);
+    if (stored === null) return structuredClone(fallback);
+    try {
+      const value = JSON.parse(stored);
+      return value === null ? structuredClone(fallback) : value;
+    } catch (e) {
+      return structuredClone(fallback);
+    }
   }
 
-  function saveLocalState() {
-    localStorage.setItem(LS_KEY, JSON.stringify(expenses));
-    localStorage.setItem(LS_CAT, JSON.stringify(categories));
-    localStorage.setItem(LS_AREA, String(buildArea));
-    localStorage.setItem(LS_RECEIPTS, JSON.stringify(receipts));
-    localStorage.setItem(LS_ALLOCS, JSON.stringify(allocations));
-    localStorage.setItem(LS_TASKS, JSON.stringify(tasks));
-    localStorage.setItem(LS_WORKBOOK, JSON.stringify(workbookPages));
-    localStorage.setItem(LS_DASHBOARD_PREFS, JSON.stringify(dashboardPrefs));
+  function loadState(projectId) {
+    expenses = readProjectJson(LS_KEY, projectId, mockTransactions);
+    categories = readProjectJson(LS_CAT, projectId, defaultCategories);
+    receipts = readProjectJson(LS_RECEIPTS, projectId, [{ id: uid(), date: '2026-01-01', client: 'Mr. Rao', amount: 500000, mode: 'Bank Transfer', ref: 'Advance-001', notes: 'Project advance' }]);
+    allocations = readProjectJson(LS_ALLOCS, projectId, []);
+    tasks = readProjectJson(LS_TASKS, projectId, mockTasks);
+    workbookPages = readProjectJson(LS_WORKBOOK, projectId, mockPages);
+    dashboardPrefs = readProjectJson(LS_DASHBOARD_PREFS, projectId, {});
+    const storedArea = localStorage.getItem(projectStorageKey(LS_AREA, projectId)) ??
+      (projectId === LEGACY_PROJECT_ID ? localStorage.getItem(LS_AREA) : null);
+    buildArea = Number(storedArea) || 2000;
+    activePageId = workbookPages[0]?.id || null;
+  }
+
+  function collectPayload(projectName = activeProjectName) {
+    return { projectName, expenses, categories, buildArea, receipts, allocations, tasks, workbookPages };
+  }
+
+  function createEmptyProjectPayload(projectName) {
+    return {
+      projectName,
+      expenses: [],
+      categories: structuredClone(defaultCategories),
+      buildArea: 2000,
+      receipts: [],
+      allocations: [],
+      tasks: [],
+      workbookPages: []
+    };
+  }
+
+  function saveLocalState(projectId = activeProjectId) {
+    if (!projectId) return;
+    localStorage.setItem(projectStorageKey(LS_KEY, projectId), JSON.stringify(expenses));
+    localStorage.setItem(projectStorageKey(LS_CAT, projectId), JSON.stringify(categories));
+    localStorage.setItem(projectStorageKey(LS_AREA, projectId), String(buildArea));
+    localStorage.setItem(projectStorageKey(LS_RECEIPTS, projectId), JSON.stringify(receipts));
+    localStorage.setItem(projectStorageKey(LS_ALLOCS, projectId), JSON.stringify(allocations));
+    localStorage.setItem(projectStorageKey(LS_TASKS, projectId), JSON.stringify(tasks));
+    localStorage.setItem(projectStorageKey(LS_WORKBOOK, projectId), JSON.stringify(workbookPages));
+    localStorage.setItem(projectStorageKey(LS_DASHBOARD_PREFS, projectId), JSON.stringify(dashboardPrefs));
+  }
+
+  function setSyncStatus(message, state = 'normal') {
+    const status = $('sync-status');
+    if (!status) return;
+    status.textContent = message;
+    status.className = `text-[0.65rem] ${state === 'success' ? 'text-emerald-300' : state === 'error' ? 'text-red-300' : state === 'local' ? 'text-amber-300' : 'text-slate-300'}`;
+  }
+
+  function setCloudSyncedStatus() {
+    if (realtimeStatus === 'SUBSCRIBED') setSyncStatus('Cloud synced · live updates on', 'success');
+    else if (realtimeStatus === 'CHANNEL_ERROR' || realtimeStatus === 'TIMED_OUT') setSyncStatus('Cloud saved; live updates unavailable', 'error');
+    else setSyncStatus('Cloud synced · live updates connecting');
+  }
+
+  function readLocalProjects() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(LS_PROJECTS) || '[]');
+      return Array.isArray(stored) ? stored.filter(project => project && project.id && project.name) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveProjectDirectory() {
+    localStorage.setItem(LS_PROJECTS, JSON.stringify(projects));
+  }
+
+  function projectFromCloudRow(row) {
+    const name = row.id === LEGACY_PROJECT_ID
+      ? 'Prem residence'
+      : (row.payload && (row.payload.projectName || row.payload.name)) || 'Untitled project';
+    return { id: row.id, name };
+  }
+
+  function mergeProjectLists(remoteProjects, localProjects) {
+    const merged = new Map(remoteProjects.map(project => [project.id, project]));
+    localProjects.forEach(project => {
+      if (!merged.has(project.id)) merged.set(project.id, project);
+    });
+    return [...merged.values()].sort((a, b) => {
+      if (a.id === LEGACY_PROJECT_ID) return -1;
+      if (b.id === LEGACY_PROJECT_ID) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  function renderProjectList() {
+    const holder = $('project-list');
+    if (!holder) return;
+    holder.replaceChildren();
+    if (!projects.length) {
+      const empty = document.createElement('p');
+      empty.className = 'text-sm text-slate-500 sm:col-span-2 lg:col-span-3';
+      empty.textContent = 'No projects available yet.';
+      holder.appendChild(empty);
+      return;
+    }
+    projects.forEach(project => {
+      const card = document.createElement('article');
+      card.className = 'card flex items-center justify-between gap-3';
+      const title = document.createElement('h2');
+      title.className = 'text-sm font-bold text-slate-800 truncate';
+      title.textContent = project.name;
+      const openButton = document.createElement('button');
+      openButton.type = 'button';
+      openButton.className = 'shrink-0 px-3 py-1.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold';
+      openButton.textContent = 'Open';
+      openButton.addEventListener('click', () => openProject(project.id));
+      card.append(title, openButton);
+      holder.appendChild(card);
+    });
+  }
+
+  async function loadProjectDirectory(initializeMissingMain = false) {
+    const localProjects = readLocalProjects();
+    const listStatus = $('project-list-status');
+    if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) {
+      projects = mergeProjectLists(localProjects, []);
+      if (!projects.some(project => project.id === LEGACY_PROJECT_ID)) {
+        projects = mergeProjectLists([{ id: LEGACY_PROJECT_ID, name: 'Prem residence' }], projects);
+      }
+      if (initializeMissingMain && !localStorage.getItem(projectStorageKey(LS_KEY, LEGACY_PROJECT_ID))) {
+        loadState(LEGACY_PROJECT_ID);
+        saveLocalState(LEGACY_PROJECT_ID);
+      }
+      saveProjectDirectory();
+      if (listStatus) listStatus.textContent = 'Cloud sync is unavailable; projects are stored on this device.';
+      renderProjectList();
+      return;
+    }
+
+    try {
+      const { data, error } = await supabaseClient.from('project_data').select('id,payload,updated_at');
+      if (error) throw error;
+      let remoteProjects = (data || []).map(projectFromCloudRow);
+      if (initializeMissingMain && !remoteProjects.some(project => project.id === LEGACY_PROJECT_ID)) {
+        loadState(LEGACY_PROJECT_ID);
+        saveLocalState(LEGACY_PROJECT_ID);
+        const { error: insertError } = await supabaseClient.from('project_data').insert({
+          id: LEGACY_PROJECT_ID,
+          payload: collectPayload('Prem residence'),
+          updated_at: new Date().toISOString()
+        });
+        if (insertError && insertError.code !== '23505') throw insertError;
+        if (!insertError) remoteProjects.push({ id: LEGACY_PROJECT_ID, name: 'Prem residence' });
+        else {
+          const { data: refreshed, error: refreshError } = await supabaseClient.from('project_data').select('id,payload,updated_at');
+          if (refreshError) throw refreshError;
+          remoteProjects = (refreshed || []).map(projectFromCloudRow);
+        }
+      }
+      projects = mergeProjectLists(remoteProjects, localProjects);
+      if (!projects.some(project => project.id === LEGACY_PROJECT_ID)) {
+        projects = mergeProjectLists([{ id: LEGACY_PROJECT_ID, name: 'Prem residence' }], projects);
+        if (initializeMissingMain && !localStorage.getItem(projectStorageKey(LS_KEY, LEGACY_PROJECT_ID))) {
+          loadState(LEGACY_PROJECT_ID);
+          saveLocalState(LEGACY_PROJECT_ID);
+        }
+      }
+      saveProjectDirectory();
+      if (listStatus) listStatus.textContent = 'Cloud is connected. Projects saved locally during an outage will retry sync when opened.';
+      renderProjectList();
+    } catch (err) {
+      console.warn('Project list sync error:', err);
+      projects = mergeProjectLists(localProjects, []);
+      if (!projects.some(project => project.id === LEGACY_PROJECT_ID)) {
+        projects = mergeProjectLists([{ id: LEGACY_PROJECT_ID, name: 'Prem residence' }], projects);
+      }
+      if (initializeMissingMain && !localStorage.getItem(projectStorageKey(LS_KEY, LEGACY_PROJECT_ID))) {
+        loadState(LEGACY_PROJECT_ID);
+        saveLocalState(LEGACY_PROJECT_ID);
+      }
+      saveProjectDirectory();
+      if (listStatus) listStatus.textContent = 'Could not load shared projects. Local projects remain available on this device.';
+      renderProjectList();
+    }
   }
 
   async function saveState() {
@@ -468,49 +670,170 @@
   }
 
   async function saveCloudState() {
-    if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) return;
+    if (!activeProjectId) return false;
+    if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) {
+      setSyncStatus('Saved on this device only', 'local');
+      return false;
+    }
+    setSyncStatus('Syncing…');
     try {
-      const payload = { expenses, categories, buildArea, receipts, allocations, tasks, workbookPages };
-      const { error } = await supabaseClient.from('project_data').upsert({ id: CLOUD_ROW_ID, payload, updated_at: new Date().toISOString() });
-      if (error) console.warn('Cloud save error:', error.message);
-    } catch (err) { console.warn('Cloud save error:', err); }
+      const { error } = await supabaseClient.from('project_data').upsert({
+        id: activeProjectId,
+        payload: collectPayload(),
+        updated_at: new Date().toISOString()
+      });
+      if (error) throw error;
+      setCloudSyncedStatus();
+      return true;
+    } catch (err) {
+      console.warn('Cloud save error:', err);
+      setSyncStatus('Sync failed; saved on this device only', 'error');
+      return false;
+    }
   }
 
-  function applyPayload(payload) {
-    if (!payload) return;
-    expenses = payload.expenses || [];
-    categories = payload.categories || structuredClone(defaultCategories);
-    receipts = payload.receipts || [];
-    allocations = payload.allocations || [];
-    tasks = payload.tasks || structuredClone(mockTasks);
-    workbookPages = payload.workbookPages || structuredClone(mockPages);
-    buildArea = payload.buildArea || buildArea;
-    if (!activePageId && workbookPages.length) activePageId = workbookPages[0].id;
+  function applyPayload(payload, projectId = activeProjectId) {
+    if (!payload || !projectId || projectId !== activeProjectId) return;
+    expenses = Array.isArray(payload.expenses) ? payload.expenses : [];
+    categories = Array.isArray(payload.categories) ? payload.categories : structuredClone(defaultCategories);
+    receipts = Array.isArray(payload.receipts) ? payload.receipts : [];
+    allocations = Array.isArray(payload.allocations) ? payload.allocations : [];
+    tasks = Array.isArray(payload.tasks) ? payload.tasks : structuredClone(mockTasks);
+    workbookPages = Array.isArray(payload.workbookPages) ? payload.workbookPages : structuredClone(mockPages);
+    buildArea = Number(payload.buildArea) || buildArea;
+    activePageId = workbookPages[0]?.id || null;
     isApplyingRemoteUpdate = true;
-    saveLocalState();
+    saveLocalState(projectId);
     isApplyingRemoteUpdate = false;
     populateCategorySelects();
     refreshAllViews();
   }
 
-  async function loadCloudState() {
-    if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) return;
+  async function loadCloudState(projectId) {
+    if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) {
+      setSyncStatus('Saved on this device only', 'local');
+      return;
+    }
     try {
-      const { data, error } = await supabaseClient.from('project_data').select('payload').eq('id', CLOUD_ROW_ID).single();
-      if (error && error.code !== 'PGRST116') console.warn('Cloud load warning:', error.message);
-      if (data && data.payload && Object.keys(data.payload).length > 0) applyPayload(data.payload);
-    } catch (err) { console.warn('Cloud load failed, using local storage:', err); }
+      const { data, error } = await supabaseClient.from('project_data').select('payload').eq('id', projectId).maybeSingle();
+      if (error) throw error;
+      if (activeProjectId !== projectId) return;
+      if (data && data.payload && Object.keys(data.payload).length > 0) {
+        applyPayload(data.payload, projectId);
+        setCloudSyncedStatus();
+      } else {
+        await saveCloudState();
+      }
+    } catch (err) {
+      console.warn('Cloud load failed:', err);
+      if (activeProjectId === projectId) setSyncStatus('Sync failed; showing local data', 'error');
+    }
+  }
+
+  function showProjectsHome() {
+    activeProjectId = null;
+    activeProjectName = '';
+    $('projects-home').classList.remove('hidden');
+    $('project-workspace').classList.add('hidden');
+    $('project-context').classList.add('hidden');
+    $('project-context').classList.remove('flex');
+    $('project-tools').classList.add('hidden');
+    $('project-tools').classList.remove('flex');
+    $('main-nav').classList.add('hidden');
+    $('main-nav').classList.remove('flex');
+    renderProjectList();
+  }
+
+  function resetProjectForms() {
+    resetExpenseForm();
+    ['task-form', 'category-form', 'receipt-form', 'allocation-form', 'edit-task-form'].forEach(id => $(id)?.reset());
+    $('task-modal')?.classList.add('hidden');
+    $('image-modal')?.classList.add('hidden');
+    if ($('note-image-file')) $('note-image-file').value = '';
+    if ($('note-image-preview')) $('note-image-preview').src = '';
+  }
+
+  async function openProject(projectId) {
+    const project = projects.find(item => item.id === projectId);
+    if (!project) return;
+    activeProjectId = project.id;
+    activeProjectName = project.name;
+    loadState(project.id);
+    $('active-project-name').textContent = project.name;
+    $('projects-home').classList.add('hidden');
+    $('project-workspace').classList.remove('hidden');
+    $('project-context').classList.remove('hidden');
+    $('project-context').classList.add('flex');
+    $('project-tools').classList.remove('hidden');
+    $('project-tools').classList.add('flex');
+    $('main-nav').classList.remove('hidden');
+    $('main-nav').classList.add('flex');
+    setSyncStatus('Loading project…');
+    populateCategorySelects();
+    resetProjectForms();
+    refreshAllViews();
+    activateTab('transactions');
+    await loadCloudState(project.id);
+  }
+
+  async function createProject(name) {
+    const normalizedName = name.trim();
+    if (!normalizedName) return;
+    if (projects.some(project => project.name.toLocaleLowerCase() === normalizedName.toLocaleLowerCase())) {
+      alert('A project with this name already exists.');
+      return;
+    }
+    const project = { id: `project-${uid()}`, name: normalizedName };
+    const payload = createEmptyProjectPayload(project.name);
+    let cloudSaved = false;
+    if (supabaseClient && !SUPABASE_ANON_KEY.includes('PASTE_YOUR')) {
+      try {
+        const { error } = await supabaseClient.from('project_data').insert({
+          id: project.id,
+          payload,
+          updated_at: new Date().toISOString()
+        });
+        if (error) throw error;
+        cloudSaved = true;
+      } catch (err) {
+        console.warn('Project creation sync error:', err);
+        alert('The project was created on this device, but could not be shared. Check the Supabase table permissions and connection.');
+      }
+    }
+    projects = mergeProjectLists([...projects, project], []);
+    saveProjectDirectory();
+    activeProjectId = project.id;
+    activeProjectName = project.name;
+    expenses = payload.expenses;
+    categories = payload.categories;
+    buildArea = payload.buildArea;
+    receipts = payload.receipts;
+    allocations = payload.allocations;
+    tasks = payload.tasks;
+    workbookPages = payload.workbookPages;
+    dashboardPrefs = {};
+    activePageId = null;
+    saveLocalState();
+    await openProject(project.id);
+    if (!cloudSaved) setSyncStatus('Saved on this device only', 'local');
   }
 
   function initRealtime() {
     if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) return;
-    supabaseClient.channel('public:project_data')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_data' }, payload => {
-        const nextPayload = payload.new && payload.new.payload;
-        if (nextPayload) applyPayload(nextPayload);
-        else loadCloudState();
+    if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = supabaseClient.channel('public:project_data')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_data' }, change => {
+        const changedRow = change.new;
+        if (changedRow && changedRow.id === activeProjectId && changedRow.payload) {
+          applyPayload(changedRow.payload, changedRow.id);
+        }
+        loadProjectDirectory();
       })
-      .subscribe();
+      .subscribe(status => {
+        realtimeStatus = status;
+        if (activeProjectId && status === 'SUBSCRIBED') setCloudSyncedStatus();
+        else if (activeProjectId && (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')) setCloudSyncedStatus();
+      });
   }
 
   /* --- DARK / LIGHT THEME TOGGLE IMPLEMENTATION --- */
@@ -977,9 +1300,9 @@
       holder.innerHTML = dashboardWidgets.map(([key, label]) => `<label class="flex items-center gap-1.5"><input type="checkbox" data-widget-toggle="${key}" checked />${label}</label>`).join('');
     }
     document.querySelectorAll('[data-widget-toggle]').forEach(checkbox => {
-      checkbox.addEventListener('change', () => { const key = checkbox.getAttribute('data-widget-toggle'); dashboardPrefs[key] = checkbox.checked; localStorage.setItem(LS_DASHBOARD_PREFS, JSON.stringify(dashboardPrefs)); applyDashboardPrefs(); if (key === 'charts' && checkbox.checked) renderDashboard(); });
+      checkbox.addEventListener('change', () => { const key = checkbox.getAttribute('data-widget-toggle'); dashboardPrefs[key] = checkbox.checked; if (activeProjectId) localStorage.setItem(projectStorageKey(LS_DASHBOARD_PREFS), JSON.stringify(dashboardPrefs)); applyDashboardPrefs(); if (key === 'charts' && checkbox.checked) renderDashboard(); });
     });
-    $('reset-dashboard-prefs')?.addEventListener('click', () => { dashboardPrefs = {}; localStorage.removeItem(LS_DASHBOARD_PREFS); applyDashboardPrefs(); renderDashboard(); });
+    $('reset-dashboard-prefs')?.addEventListener('click', () => { dashboardPrefs = {}; if (activeProjectId) localStorage.removeItem(projectStorageKey(LS_DASHBOARD_PREFS)); applyDashboardPrefs(); renderDashboard(); });
     applyDashboardPrefs();
   }
 
@@ -1021,6 +1344,13 @@
 
   function bindEvents() {
     $('theme-toggle')?.addEventListener('click', toggleTheme);
+    $('back-to-projects')?.addEventListener('click', showProjectsHome);
+    $('create-project-form')?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const input = $('new-project-name');
+      await createProject(input.value);
+      input.value = '';
+    });
 
     $('categories-tree-container')?.addEventListener('click', async e => {
       if (e.target.classList.contains('del-cat-btn')) { const catIdx = Number(e.target.dataset.catIdx); const catName = categories[catIdx]?.name; if (catName && confirm(`Delete category "${catName}" and all its sub-categories?`)) { categories.splice(catIdx, 1); await saveState(); populateCategorySelects(); refreshAllViews(); } }
@@ -1290,15 +1620,18 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     bindEvents();
-    loadState();
     initTheme();
-    populateCategorySelects();
     initDashboardCustomizer();
-    refreshAllViews();
-    activateTab('transactions');
-    loadCloudState().then(() => initRealtime());
+    showProjectsHome();
+    await loadProjectDirectory(true);
+    initRealtime();
+  });
+
+  window.addEventListener('online', async () => {
+    await loadProjectDirectory();
+    if (activeProjectId) await loadCloudState(activeProjectId);
   });
 </script>
 </body>
