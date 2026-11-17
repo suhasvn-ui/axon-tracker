@@ -561,7 +561,7 @@
   }
 
   function storageRecoveryMessage(error) {
-    return `Local storage unavailable (${error.message || 'storage error'}). Existing saved data was not changed; keep this tab open and export a JSON backup before closing.`;
+    return `Local project cache unavailable (${error.message || 'storage error'}). Existing saved data was not changed; keep this tab open and download a JSON backup before closing.`;
   }
 
   async function loadState(projectId) {
@@ -654,6 +654,14 @@
 
   function hasPendingChanges(projectId = activeProjectId) {
     return !!projectId && pendingProjectIds.has(projectId);
+  }
+
+  function hasUnrecoverablePendingChanges(projectId = activeProjectId) {
+    return !!projectId && localRecoveryRequired && hasPendingChanges(projectId);
+  }
+
+  function shouldDeferCloudLoad(projectId) {
+    return !!projectId && localRecoveryRequired && !hasPendingChanges(projectId);
   }
 
   function markPendingChanges(projectId = activeProjectId) {
@@ -873,11 +881,9 @@
     const cloudSaved = await saveCloudState();
     if (localSaveError) {
       if (cloudSaved) {
-        localRecoveryRequired = false;
-        lastLocalStorageError = null;
-        setSyncStatus('Cloud synced; local cache could not be updated. Export a JSON backup before closing.', 'error');
+        setSyncStatus('Cloud synced; local save is still pending. Download a JSON backup before leaving this project.', 'error');
       } else {
-        setSyncStatus(`Sync failed · ${localSaveError.message || 'local storage is unavailable'}; changes are not safely cached on this device. Keep this tab open and export a JSON backup.`, 'error');
+        setSyncStatus(`Sync failed · ${localSaveError.message || 'local storage is unavailable'}; changes are not safely cached on this device. Keep this tab open and download a JSON backup.`, 'error');
       }
     }
   }
@@ -908,6 +914,12 @@
         return saveCloudState();
       }
       if ((projectSaveVersions.get(projectId) || 0) !== saveVersion) return saveCloudState();
+      if (localRecoveryRequired) {
+        if (activeProjectId === projectId) {
+          setSyncStatus('Cloud synced; local save is still pending. Download a JSON backup before leaving this project.', 'error');
+        }
+        return true;
+      }
       try {
         const cleared = await clearPendingChanges(projectId, saveVersion);
         if (!cleared) return saveCloudState();
@@ -969,6 +981,10 @@
       markOfflineStatus();
       return false;
     }
+    if (shouldDeferCloudLoad(projectId)) {
+      setSyncStatus('Cloud load paused · local legacy data could not be cached and remains unchanged. Download a JSON backup before closing.', 'error');
+      return false;
+    }
     if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) {
       setSyncStatus('Saved on this device only', 'local');
       return false;
@@ -1020,6 +1036,15 @@
     isSyncing = true;
     setSyncStatus('Syncing…', 'syncing');
     try {
+      if (hasUnrecoverablePendingChanges(projectId)) {
+        try {
+          await saveLocalState(projectId);
+        } catch (error) {
+          localRecoveryRequired = true;
+          lastLocalStorageError = error;
+          setSyncStatus(storageRecoveryMessage(error), 'error');
+        }
+      }
       const directorySynced = await loadProjectDirectory();
       if (activeProjectId !== projectId) return false;
       if (!directorySynced && supabaseClient) {
@@ -1047,6 +1072,10 @@
   }
 
   function showProjectsHome() {
+    if (localRecoveryRequired) {
+      setSyncStatus(storageRecoveryMessage(lastLocalStorageError || new Error('pending changes are not saved')), 'error');
+      return false;
+    }
     activeProjectId = null;
     activeProjectName = '';
     $('projects-home').classList.remove('hidden');
@@ -1058,6 +1087,7 @@
     $('main-nav').classList.add('hidden');
     $('main-nav').classList.remove('flex');
     renderProjectList();
+    return true;
   }
 
   function resetProjectForms() {
@@ -1072,6 +1102,10 @@
   async function openProject(projectId) {
     const project = projects.find(item => item.id === projectId);
     if (!project) return;
+    if (activeProjectId && activeProjectId !== project.id && localRecoveryRequired) {
+      setSyncStatus(storageRecoveryMessage(lastLocalStorageError || new Error('pending changes are not saved')), 'error');
+      return;
+    }
     activeProjectId = project.id;
     activeProjectName = project.name;
     let localStateLoaded = false;
@@ -1705,6 +1739,11 @@
   }
 
   function bindEvents() {
+    window.addEventListener('beforeunload', event => {
+      if (!hasUnrecoverablePendingChanges()) return;
+      event.preventDefault();
+      event.returnValue = '';
+    });
     $('theme-toggle')?.addEventListener('click', toggleTheme);
     $('btn-sync')?.addEventListener('click', syncNow);
     $('back-to-projects')?.addEventListener('click', showProjectsHome);
@@ -1938,14 +1977,19 @@
     });
 
     $('btn-export')?.addEventListener('click', () => {
-      const payload = { expenses, categories, buildArea, receipts, allocations, tasks, workbookPages };
-      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload, null, 2));
+      const payload = collectPayload();
+      const data = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(data);
       const a = document.createElement('a');
-      a.setAttribute('href', dataStr);
+      a.setAttribute('href', url);
       a.setAttribute('download', `axon_project_backup_${today()}.json`);
       document.body.appendChild(a);
       a.click();
       a.remove();
+      if (hasUnrecoverablePendingChanges()) {
+        setSyncStatus('Backup download started; local save is still pending. Keep the downloaded JSON file.', 'error');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
 
     $('btn-export-csv')?.addEventListener('click', () => {
