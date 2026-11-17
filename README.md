@@ -10,4 +10,6 @@ Project records are stored in the `public.project_data` Supabase table, one row 
 
 For cross-device sharing, the configured Supabase project must have a readable/writable `project_data` table with `id` as its text primary key, `payload` as JSONB, and `updated_at` as a timestamp. The configured anonymous client needs the applicable SELECT, INSERT, and UPDATE permissions, and `project_data` must be enabled for Supabase Realtime. If these permissions or Realtime are unavailable, the app indicates that cloud sync failed and retains the data locally.
 
+Use **Sync now** in the project header to refresh the project list and active project's cloud data. Changes saved while offline or after a failed cloud write are marked as pending locally and uploaded when sync is retried or connectivity returns. The app stores each project's full data in one row, so simultaneous edits to the same project from multiple devices are last-write-wins; sync is not a field-level merge or conflict-resolution system.
+
 This retains the app's existing shared anonymous access model; it does not add sign-in or member-specific permissions. Anyone able to use the configured anonymous client may be able to read or change project rows, depending on the table's Row Level Security policies. Review those policies before using the app for data that must be private.
