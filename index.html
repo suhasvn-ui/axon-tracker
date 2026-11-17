@@ -398,6 +398,10 @@
   const LS_PROJECTS = 'axon_projects_v1';
   const LS_DIRTY = 'axon_project_dirty_v1';
   const LEGACY_PROJECT_ID = 'main';
+  const LOCAL_DB_NAME = 'axon-tracker-local';
+  const LOCAL_DB_VERSION = 1;
+  const LOCAL_STATE_STORE = 'project_state';
+  const LOCAL_META_STORE = 'metadata';
 
   const $ = id => document.getElementById(id);
   const uid = () => 'id-' + Math.random().toString(36).slice(2, 9);
@@ -469,36 +473,134 @@
   let realtimeChannel = null;
   let realtimeStatus = 'CONNECTING';
   let isSyncing = false;
+  let localDatabasePromise = null;
+  let localRecoveryRequired = false;
+  let lastLocalStorageError = null;
+  const pendingProjectIds = new Set();
+  const projectSaveVersions = new Map();
   let ganttZoomLevel = 100;
   let dashboardPrefs = {};
   let isApplyingRemoteUpdate = false;
   let currentSort = { key: 'date', dir: 'desc' };
   let chartStatutory, chartStructural, chartFinishing, chartLabor, chartVendors, chartMaterialVariance, chartPaymentMode, chartMonthlyTrend;
 
+  function openLocalDatabase() {
+    if (localDatabasePromise) return localDatabasePromise;
+    if (!window.indexedDB) return Promise.reject(new Error('IndexedDB is not available in this browser.'));
+    localDatabasePromise = new Promise((resolve, reject) => {
+      const request = window.indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(LOCAL_STATE_STORE)) db.createObjectStore(LOCAL_STATE_STORE, { keyPath: 'projectId' });
+        if (!db.objectStoreNames.contains(LOCAL_META_STORE)) db.createObjectStore(LOCAL_META_STORE, { keyPath: 'key' });
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error('Could not open local project storage.'));
+      request.onblocked = () => reject(new Error('Local project storage is blocked by another open tracker tab.'));
+    }).catch(error => {
+      localDatabasePromise = null;
+      throw error;
+    });
+    return localDatabasePromise;
+  }
+
+  async function readIndexedRecord(storeName, key) {
+    const db = await openLocalDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readonly');
+      const request = transaction.objectStore(storeName).get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error || new Error('Could not read local project storage.'));
+      transaction.onabort = () => reject(transaction.error || new Error('Local project storage read was interrupted.'));
+    });
+  }
+
+  async function writeIndexedRecord(storeName, record) {
+    const db = await openLocalDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readwrite');
+      transaction.objectStore(storeName).put(record);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error || new Error('Could not save local project storage.'));
+      transaction.onabort = () => reject(transaction.error || new Error('Local project storage write was interrupted.'));
+    });
+  }
+
+  function readProjectRaw(key, projectId) {
+    const scopedKeys = [`${key}::${projectId}`, `${key}:${projectId}`];
+    for (const storageKey of scopedKeys) {
+      const value = localStorage.getItem(storageKey);
+      if (value !== null) return { key: storageKey, value };
+    }
+    if (projectId === LEGACY_PROJECT_ID) {
+      const value = localStorage.getItem(key);
+      if (value !== null) return { key, value };
+    }
+    return null;
+  }
+
   function readProjectJson(key, projectId, fallback) {
-    let stored = localStorage.getItem(projectStorageKey(key, projectId));
-    if (stored === null && projectId === LEGACY_PROJECT_ID) stored = localStorage.getItem(key);
-    if (stored === null) return structuredClone(fallback);
+    const stored = readProjectRaw(key, projectId);
+    if (!stored) return structuredClone(fallback);
     try {
-      const value = JSON.parse(stored);
+      const value = JSON.parse(stored.value);
       return value === null ? structuredClone(fallback) : value;
-    } catch (e) {
-      return structuredClone(fallback);
+    } catch (error) {
+      throw new Error(`Saved local data in "${stored.key}" is not valid JSON. The original value has been left untouched.`);
     }
   }
 
-  function loadState(projectId) {
-    expenses = readProjectJson(LS_KEY, projectId, mockTransactions);
-    categories = readProjectJson(LS_CAT, projectId, defaultCategories);
-    receipts = readProjectJson(LS_RECEIPTS, projectId, [{ id: uid(), date: '2026-01-01', client: 'Mr. Rao', amount: 500000, mode: 'Bank Transfer', ref: 'Advance-001', notes: 'Project advance' }]);
-    allocations = readProjectJson(LS_ALLOCS, projectId, []);
-    tasks = readProjectJson(LS_TASKS, projectId, mockTasks);
-    workbookPages = readProjectJson(LS_WORKBOOK, projectId, mockPages);
-    dashboardPrefs = readProjectJson(LS_DASHBOARD_PREFS, projectId, {});
-    const storedArea = localStorage.getItem(projectStorageKey(LS_AREA, projectId)) ??
-      (projectId === LEGACY_PROJECT_ID ? localStorage.getItem(LS_AREA) : null);
-    buildArea = Number(storedArea) || 2000;
+  function restorePayload(payload) {
+    expenses = Array.isArray(payload.expenses) ? payload.expenses : structuredClone(mockTransactions);
+    categories = Array.isArray(payload.categories) ? payload.categories : structuredClone(defaultCategories);
+    receipts = Array.isArray(payload.receipts) ? payload.receipts : [{ id: uid(), date: '2026-01-01', client: 'Mr. Rao', amount: 500000, mode: 'Bank Transfer', ref: 'Advance-001', notes: 'Project advance' }];
+    allocations = Array.isArray(payload.allocations) ? payload.allocations : [];
+    tasks = Array.isArray(payload.tasks) ? payload.tasks : structuredClone(mockTasks);
+    workbookPages = Array.isArray(payload.workbookPages) ? payload.workbookPages : structuredClone(mockPages);
+    buildArea = Number(payload.buildArea) || 2000;
+  }
+
+  function storageRecoveryMessage(error) {
+    return `Local storage unavailable (${error.message || 'storage error'}). Existing saved data was not changed; keep this tab open and export a JSON backup before closing.`;
+  }
+
+  async function loadState(projectId) {
+    let record = null;
+    try {
+      record = await readIndexedRecord(LOCAL_STATE_STORE, projectId);
+    } catch (error) {
+      if (window.indexedDB) throw error;
+    }
+    if (record && record.payload) {
+      restorePayload(record.payload);
+      dashboardPrefs = record.dashboardPrefs || readProjectJson(LS_DASHBOARD_PREFS, projectId, {});
+      if (record.pending || localStorage.getItem(projectStorageKey(LS_DIRTY, projectId)) === '1') pendingProjectIds.add(projectId);
+      else pendingProjectIds.delete(projectId);
+    } else {
+      restorePayload({
+        expenses: readProjectJson(LS_KEY, projectId, mockTransactions),
+        categories: readProjectJson(LS_CAT, projectId, defaultCategories),
+        receipts: readProjectJson(LS_RECEIPTS, projectId, [{ id: uid(), date: '2026-01-01', client: 'Mr. Rao', amount: 500000, mode: 'Bank Transfer', ref: 'Advance-001', notes: 'Project advance' }]),
+        allocations: readProjectJson(LS_ALLOCS, projectId, []),
+        tasks: readProjectJson(LS_TASKS, projectId, mockTasks),
+        workbookPages: readProjectJson(LS_WORKBOOK, projectId, mockPages),
+        buildArea: readProjectRaw(LS_AREA, projectId)?.value
+      });
+      dashboardPrefs = readProjectJson(LS_DASHBOARD_PREFS, projectId, {});
+      if (localStorage.getItem(projectStorageKey(LS_DIRTY, projectId)) === '1') pendingProjectIds.add(projectId);
+      else pendingProjectIds.delete(projectId);
+      try {
+        await saveLocalState(projectId);
+      } catch (error) {
+        localRecoveryRequired = true;
+        lastLocalStorageError = error;
+        activePageId = workbookPages[0]?.id || null;
+        setSyncStatus(storageRecoveryMessage(error), 'error');
+        return false;
+      }
+    }
     activePageId = workbookPages[0]?.id || null;
+    return true;
   }
 
   function collectPayload(projectName = activeProjectName) {
@@ -518,16 +620,18 @@
     };
   }
 
-  function saveLocalState(projectId = activeProjectId) {
+  async function saveLocalState(projectId = activeProjectId) {
     if (!projectId) return;
-    localStorage.setItem(projectStorageKey(LS_KEY, projectId), JSON.stringify(expenses));
-    localStorage.setItem(projectStorageKey(LS_CAT, projectId), JSON.stringify(categories));
-    localStorage.setItem(projectStorageKey(LS_AREA, projectId), String(buildArea));
-    localStorage.setItem(projectStorageKey(LS_RECEIPTS, projectId), JSON.stringify(receipts));
-    localStorage.setItem(projectStorageKey(LS_ALLOCS, projectId), JSON.stringify(allocations));
-    localStorage.setItem(projectStorageKey(LS_TASKS, projectId), JSON.stringify(tasks));
-    localStorage.setItem(projectStorageKey(LS_WORKBOOK, projectId), JSON.stringify(workbookPages));
-    localStorage.setItem(projectStorageKey(LS_DASHBOARD_PREFS, projectId), JSON.stringify(dashboardPrefs));
+    const projectName = activeProjectName || (projectId === LEGACY_PROJECT_ID ? 'Prem residence' : '');
+    await writeIndexedRecord(LOCAL_STATE_STORE, {
+      projectId,
+      payload: collectPayload(projectName),
+      dashboardPrefs,
+      pending: pendingProjectIds.has(projectId),
+      updatedAt: new Date().toISOString()
+    });
+    localRecoveryRequired = false;
+    lastLocalStorageError = null;
   }
 
   function setSyncStatus(message, state = 'normal') {
@@ -549,38 +653,84 @@
   }
 
   function hasPendingChanges(projectId = activeProjectId) {
-    return !!projectId && localStorage.getItem(projectStorageKey(LS_DIRTY, projectId)) === '1';
+    return !!projectId && pendingProjectIds.has(projectId);
   }
 
   function markPendingChanges(projectId = activeProjectId) {
-    if (projectId) localStorage.setItem(projectStorageKey(LS_DIRTY, projectId), '1');
+    if (!projectId) return 0;
+    pendingProjectIds.add(projectId);
+    const version = (projectSaveVersions.get(projectId) || 0) + 1;
+    projectSaveVersions.set(projectId, version);
+    return version;
   }
 
-  function clearPendingChanges(projectId) {
-    localStorage.removeItem(projectStorageKey(LS_DIRTY, projectId));
+  async function clearPendingChanges(projectId, expectedVersion) {
+    const db = await openLocalDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(LOCAL_STATE_STORE, 'readwrite');
+      const store = transaction.objectStore(LOCAL_STATE_STORE);
+      const request = store.get(projectId);
+      let updated = false;
+      request.onsuccess = () => {
+        if ((projectSaveVersions.get(projectId) || 0) !== expectedVersion) return;
+        const record = request.result;
+        if (!record) {
+          updated = true;
+          return;
+        }
+        record.pending = false;
+        store.put(record);
+        updated = true;
+      };
+      request.onerror = () => reject(request.error || new Error('Could not update local sync status.'));
+      transaction.oncomplete = () => {
+        if ((projectSaveVersions.get(projectId) || 0) !== expectedVersion) {
+          resolve(false);
+          return;
+        }
+        if (updated) pendingProjectIds.delete(projectId);
+        resolve(updated);
+      };
+      transaction.onerror = () => reject(transaction.error || new Error('Could not update local sync status.'));
+      transaction.onabort = () => reject(transaction.error || new Error('Local sync status update was interrupted.'));
+    });
   }
 
   function markOfflineStatus() {
-    if (activeProjectId) setSyncStatus('Offline · changes are saved on this device', 'local');
+    if (activeProjectId) {
+      if (localRecoveryRequired) setSyncStatus(storageRecoveryMessage(lastLocalStorageError || new Error('local changes are not cached')), 'error');
+      else setSyncStatus('Offline · changes are saved on this device', 'local');
+    }
   }
 
   function setCloudSyncedStatus() {
+    if (localRecoveryRequired) {
+      setSyncStatus('Cloud synced; local cache could not be updated. Export a JSON backup before closing.', 'error');
+      return;
+    }
     if (realtimeStatus === 'SUBSCRIBED') setSyncStatus('Cloud synced · live updates on', 'success');
     else if (realtimeStatus === 'CHANNEL_ERROR' || realtimeStatus === 'TIMED_OUT') setSyncStatus('Cloud saved; live updates unavailable', 'error');
     else setSyncStatus('Cloud synced · live updates connecting');
   }
 
-  function readLocalProjects() {
+  async function readLocalProjects() {
+    let record = null;
+    try {
+      record = await readIndexedRecord(LOCAL_META_STORE, 'project-directory');
+    } catch (error) {
+      if (window.indexedDB) throw error;
+    }
+    if (record && Array.isArray(record.projects)) return record.projects.filter(project => project && project.id && project.name);
     try {
       const stored = JSON.parse(localStorage.getItem(LS_PROJECTS) || '[]');
       return Array.isArray(stored) ? stored.filter(project => project && project.id && project.name) : [];
-    } catch (e) {
-      return [];
+    } catch (error) {
+      throw new Error('Saved project list is not valid JSON. The original value has been left untouched.');
     }
   }
 
-  function saveProjectDirectory() {
-    localStorage.setItem(LS_PROJECTS, JSON.stringify(projects));
+  async function saveProjectDirectory() {
+    await writeIndexedRecord(LOCAL_META_STORE, { key: 'project-directory', projects });
   }
 
   function projectFromCloudRow(row) {
@@ -630,18 +780,22 @@
   }
 
   async function loadProjectDirectory(initializeMissingMain = false) {
-    const localProjects = readLocalProjects();
+    let localProjects;
     const listStatus = $('project-list-status');
+    try {
+      localProjects = await readLocalProjects();
+    } catch (error) {
+      console.warn('Local project list read error:', error);
+      if (listStatus) listStatus.textContent = storageRecoveryMessage(error);
+      return false;
+    }
     if (!isBrowserOnline()) {
       projects = mergeProjectLists(localProjects, []);
       if (!projects.some(project => project.id === LEGACY_PROJECT_ID)) {
         projects = mergeProjectLists([{ id: LEGACY_PROJECT_ID, name: 'Prem residence' }], projects);
       }
-      if (initializeMissingMain && !localStorage.getItem(projectStorageKey(LS_KEY, LEGACY_PROJECT_ID))) {
-        loadState(LEGACY_PROJECT_ID);
-        saveLocalState(LEGACY_PROJECT_ID);
-      }
-      saveProjectDirectory();
+      if (initializeMissingMain) await loadState(LEGACY_PROJECT_ID);
+      try { await saveProjectDirectory(); } catch (error) { console.warn('Local project list save error:', error); }
       if (listStatus) listStatus.textContent = 'Offline · showing projects saved on this device.';
       renderProjectList();
       return false;
@@ -651,11 +805,8 @@
       if (!projects.some(project => project.id === LEGACY_PROJECT_ID)) {
         projects = mergeProjectLists([{ id: LEGACY_PROJECT_ID, name: 'Prem residence' }], projects);
       }
-      if (initializeMissingMain && !localStorage.getItem(projectStorageKey(LS_KEY, LEGACY_PROJECT_ID))) {
-        loadState(LEGACY_PROJECT_ID);
-        saveLocalState(LEGACY_PROJECT_ID);
-      }
-      saveProjectDirectory();
+      if (initializeMissingMain) await loadState(LEGACY_PROJECT_ID);
+      await saveProjectDirectory();
       if (listStatus) listStatus.textContent = 'Cloud sync is unavailable; projects are stored on this device.';
       renderProjectList();
       return false;
@@ -666,8 +817,8 @@
       if (error) throw error;
       let remoteProjects = (data || []).map(projectFromCloudRow);
       if (initializeMissingMain && !remoteProjects.some(project => project.id === LEGACY_PROJECT_ID)) {
-        loadState(LEGACY_PROJECT_ID);
-        saveLocalState(LEGACY_PROJECT_ID);
+        const stateLoaded = await loadState(LEGACY_PROJECT_ID);
+        if (!stateLoaded) throw new Error('Could not migrate the existing local project data.');
         const { error: insertError } = await supabaseClient.from('project_data').insert({
           id: LEGACY_PROJECT_ID,
           payload: collectPayload('Prem residence'),
@@ -684,12 +835,9 @@
       projects = mergeProjectLists(remoteProjects, localProjects);
       if (!projects.some(project => project.id === LEGACY_PROJECT_ID)) {
         projects = mergeProjectLists([{ id: LEGACY_PROJECT_ID, name: 'Prem residence' }], projects);
-        if (initializeMissingMain && !localStorage.getItem(projectStorageKey(LS_KEY, LEGACY_PROJECT_ID))) {
-          loadState(LEGACY_PROJECT_ID);
-          saveLocalState(LEGACY_PROJECT_ID);
-        }
+        if (initializeMissingMain) await loadState(LEGACY_PROJECT_ID);
       }
-      saveProjectDirectory();
+      await saveProjectDirectory();
       if (listStatus) listStatus.textContent = 'Cloud is connected. Projects saved locally during an outage will retry sync when opened.';
       renderProjectList();
       return true;
@@ -699,11 +847,10 @@
       if (!projects.some(project => project.id === LEGACY_PROJECT_ID)) {
         projects = mergeProjectLists([{ id: LEGACY_PROJECT_ID, name: 'Prem residence' }], projects);
       }
-      if (initializeMissingMain && !localStorage.getItem(projectStorageKey(LS_KEY, LEGACY_PROJECT_ID))) {
-        loadState(LEGACY_PROJECT_ID);
-        saveLocalState(LEGACY_PROJECT_ID);
+      if (initializeMissingMain) {
+        try { await loadState(LEGACY_PROJECT_ID); } catch (loadError) { console.warn('Local project migration error:', loadError); }
       }
-      saveProjectDirectory();
+      try { await saveProjectDirectory(); } catch (saveError) { console.warn('Local project list save error:', saveError); }
       if (listStatus) listStatus.textContent = `Could not load shared projects (${err.message || 'check Supabase access'}). Local projects remain available on this device.`;
       renderProjectList();
       return false;
@@ -711,10 +858,27 @@
   }
 
   async function saveState() {
-    saveLocalState();
-    if (!isApplyingRemoteUpdate) {
-      markPendingChanges();
-      await saveCloudState();
+    const projectId = activeProjectId;
+    if (!projectId || isApplyingRemoteUpdate) return;
+    markPendingChanges(projectId);
+    let localSaveError = null;
+    try {
+      await saveLocalState(projectId);
+    } catch (error) {
+      localSaveError = error;
+      localRecoveryRequired = true;
+      lastLocalStorageError = error;
+      setSyncStatus(storageRecoveryMessage(error), 'error');
+    }
+    const cloudSaved = await saveCloudState();
+    if (localSaveError) {
+      if (cloudSaved) {
+        localRecoveryRequired = false;
+        lastLocalStorageError = null;
+        setSyncStatus('Cloud synced; local cache could not be updated. Export a JSON backup before closing.', 'error');
+      } else {
+        setSyncStatus(`Sync failed · ${localSaveError.message || 'local storage is unavailable'}; changes are not safely cached on this device. Keep this tab open and export a JSON backup.`, 'error');
+      }
     }
   }
 
@@ -729,6 +893,7 @@
       return false;
     }
     const projectId = activeProjectId;
+    const saveVersion = projectSaveVersions.get(projectId) || 0;
     const payload = collectPayload();
     setSyncStatus('Syncing…', 'syncing');
     try {
@@ -739,21 +904,38 @@
       });
       if (error) throw error;
       if (JSON.stringify(payload) !== JSON.stringify(collectPayload()) && activeProjectId === projectId) {
-        markPendingChanges(projectId);
+        if (!hasPendingChanges(projectId)) markPendingChanges(projectId);
         return saveCloudState();
       }
-      clearPendingChanges(projectId);
+      if ((projectSaveVersions.get(projectId) || 0) !== saveVersion) return saveCloudState();
+      try {
+        const cleared = await clearPendingChanges(projectId, saveVersion);
+        if (!cleared) return saveCloudState();
+        try { localStorage.removeItem(projectStorageKey(LS_DIRTY, projectId)); } catch (error) {
+          console.warn('Could not remove the legacy local sync marker:', error);
+        }
+      } catch (error) {
+        localRecoveryRequired = true;
+        lastLocalStorageError = error;
+        if (activeProjectId === projectId) setSyncStatus(`Cloud synced; local cache could not be updated (${error.message}). Export a JSON backup.`, 'error');
+        return true;
+      }
       if (activeProjectId === projectId) setCloudSyncedStatus();
       return true;
     } catch (err) {
       console.warn('Cloud save error:', err);
       if (!isBrowserOnline()) markOfflineStatus();
-      else if (activeProjectId === projectId) setSyncStatus(`Sync failed · ${err.message || 'check Supabase access'}`, 'error');
+      else if (activeProjectId === projectId) {
+        const detail = err.message || 'check Supabase access';
+        setSyncStatus(localRecoveryRequired
+          ? `Sync failed · ${detail}; local cache is also unavailable. Keep this tab open and export a JSON backup.`
+          : `Sync failed · ${detail}`, 'error');
+      }
       return false;
     }
   }
 
-  function applyPayload(payload, projectId = activeProjectId, allowPendingChanges = false) {
+  async function applyPayload(payload, projectId = activeProjectId, allowPendingChanges = false) {
     if (!payload || !projectId || projectId !== activeProjectId) return false;
     if (hasPendingChanges(projectId) && !allowPendingChanges) {
       setSyncStatus('Local changes pending · sync to upload', 'local');
@@ -768,8 +950,15 @@
     buildArea = Number(payload.buildArea) || buildArea;
     activePageId = workbookPages[0]?.id || null;
     isApplyingRemoteUpdate = true;
-    saveLocalState(projectId);
-    isApplyingRemoteUpdate = false;
+    try {
+      await saveLocalState(projectId);
+    } catch (error) {
+      localRecoveryRequired = true;
+      lastLocalStorageError = error;
+      setSyncStatus(storageRecoveryMessage(error), 'error');
+    } finally {
+      isApplyingRemoteUpdate = false;
+    }
     populateCategorySelects();
     refreshAllViews();
     return true;
@@ -793,18 +982,29 @@
       if (error) throw error;
       if (activeProjectId !== projectId) return;
       if (data && data.payload && Object.keys(data.payload).length > 0) {
-        const applied = applyPayload(data.payload, projectId);
+        const applied = await applyPayload(data.payload, projectId);
         if (!applied && hasPendingChanges(projectId)) return await saveCloudState();
-        setCloudSyncedStatus();
+        if (localRecoveryRequired) setSyncStatus('Cloud synced; local cache could not be updated. Export a JSON backup before closing.', 'error');
+        else setCloudSyncedStatus();
       } else {
         markPendingChanges(projectId);
+        try { await saveLocalState(projectId); } catch (error) {
+          localRecoveryRequired = true;
+          lastLocalStorageError = error;
+          setSyncStatus(storageRecoveryMessage(error), 'error');
+        }
         return await saveCloudState();
       }
       return true;
     } catch (err) {
       console.warn('Cloud load failed:', err);
       if (!isBrowserOnline()) markOfflineStatus();
-      else if (activeProjectId === projectId) setSyncStatus(`Sync failed · ${err.message || 'check Supabase access'}`, 'error');
+      else if (activeProjectId === projectId) {
+        const detail = err.message || 'check Supabase access';
+        setSyncStatus(localRecoveryRequired
+          ? `Sync failed · ${detail}; local cache is also unavailable. Keep this tab open and export a JSON backup.`
+          : `Sync failed · ${detail}`, 'error');
+      }
       return false;
     }
   }
@@ -874,7 +1074,17 @@
     if (!project) return;
     activeProjectId = project.id;
     activeProjectName = project.name;
-    loadState(project.id);
+    let localStateLoaded = false;
+    try {
+      localStateLoaded = await loadState(project.id);
+    } catch (error) {
+      localRecoveryRequired = true;
+      activeProjectId = null;
+      activeProjectName = '';
+      const listStatus = $('project-list-status');
+      if (listStatus) listStatus.textContent = storageRecoveryMessage(error);
+      return;
+    }
     $('active-project-name').textContent = project.name;
     $('projects-home').classList.add('hidden');
     $('project-workspace').classList.remove('hidden');
@@ -884,12 +1094,13 @@
     $('project-tools').classList.add('flex');
     $('main-nav').classList.remove('hidden');
     $('main-nav').classList.add('flex');
-    setSyncStatus('Loading project…');
+    if (localStateLoaded) setSyncStatus('Loading project…');
+    else setSyncStatus(storageRecoveryMessage(lastLocalStorageError || new Error('could not migrate project data')), 'error');
     populateCategorySelects();
     resetProjectForms();
     refreshAllViews();
     activateTab('transactions');
-    await loadCloudState(project.id);
+    if (localStateLoaded) await loadCloudState(project.id);
   }
 
   async function createProject(name) {
@@ -918,7 +1129,9 @@
     }
     if (!cloudSaved) markPendingChanges(project.id);
     projects = mergeProjectLists([...projects, project], []);
-    saveProjectDirectory();
+    try { await saveProjectDirectory(); } catch (error) {
+      console.warn('Project list save error:', error);
+    }
     activeProjectId = project.id;
     activeProjectName = project.name;
     expenses = payload.expenses;
@@ -930,19 +1143,23 @@
     workbookPages = payload.workbookPages;
     dashboardPrefs = {};
     activePageId = null;
-    saveLocalState();
+    try { await saveLocalState(); } catch (error) {
+      localRecoveryRequired = true;
+      lastLocalStorageError = error;
+      setSyncStatus(storageRecoveryMessage(error), 'error');
+    }
     await openProject(project.id);
-    if (!cloudSaved) setSyncStatus('Saved on this device only', 'local');
+    if (!cloudSaved && !localRecoveryRequired) setSyncStatus('Saved on this device only', 'local');
   }
 
   function initRealtime() {
     if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) return;
     if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
     realtimeChannel = supabaseClient.channel('public:project_data')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_data' }, change => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'project_data' }, async change => {
         const changedRow = change.new;
         if (changedRow && changedRow.id === activeProjectId && changedRow.payload) {
-          applyPayload(changedRow.payload, changedRow.id);
+          await applyPayload(changedRow.payload, changedRow.id);
         }
         loadProjectDirectory();
       })
@@ -955,7 +1172,10 @@
 
   /* --- DARK / LIGHT THEME TOGGLE IMPLEMENTATION --- */
   function initTheme() {
-    const savedTheme = localStorage.getItem(LS_THEME);
+    let savedTheme = null;
+    try { savedTheme = localStorage.getItem(LS_THEME); } catch (error) {
+      console.warn('Theme preference could not be read:', error);
+    }
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.body.classList.add('dark-mode');
       updateThemeUI(true);
@@ -974,7 +1194,9 @@
 
   function toggleTheme() {
     const isDark = document.body.classList.toggle('dark-mode');
-    localStorage.setItem(LS_THEME, isDark ? 'dark' : 'light');
+    try { localStorage.setItem(LS_THEME, isDark ? 'dark' : 'light'); } catch (error) {
+      if (activeProjectId) setSyncStatus(`Theme changed but its preference could not be saved (${error.message}).`, 'error');
+    }
     updateThemeUI(isDark);
     renderDashboard();
   }
@@ -1417,9 +1639,32 @@
       holder.innerHTML = dashboardWidgets.map(([key, label]) => `<label class="flex items-center gap-1.5"><input type="checkbox" data-widget-toggle="${key}" checked />${label}</label>`).join('');
     }
     document.querySelectorAll('[data-widget-toggle]').forEach(checkbox => {
-      checkbox.addEventListener('change', () => { const key = checkbox.getAttribute('data-widget-toggle'); dashboardPrefs[key] = checkbox.checked; if (activeProjectId) localStorage.setItem(projectStorageKey(LS_DASHBOARD_PREFS), JSON.stringify(dashboardPrefs)); applyDashboardPrefs(); if (key === 'charts' && checkbox.checked) renderDashboard(); });
+      checkbox.addEventListener('change', async () => {
+        const key = checkbox.getAttribute('data-widget-toggle');
+        dashboardPrefs[key] = checkbox.checked;
+        if (activeProjectId) {
+          try { await saveLocalState(); } catch (error) {
+            localRecoveryRequired = true;
+            lastLocalStorageError = error;
+            setSyncStatus(storageRecoveryMessage(error), 'error');
+          }
+        }
+        applyDashboardPrefs();
+        if (key === 'charts' && checkbox.checked) renderDashboard();
+      });
     });
-    $('reset-dashboard-prefs')?.addEventListener('click', () => { dashboardPrefs = {}; if (activeProjectId) localStorage.removeItem(projectStorageKey(LS_DASHBOARD_PREFS)); applyDashboardPrefs(); renderDashboard(); });
+    $('reset-dashboard-prefs')?.addEventListener('click', async () => {
+      dashboardPrefs = {};
+      if (activeProjectId) {
+        try { await saveLocalState(); } catch (error) {
+          localRecoveryRequired = true;
+          lastLocalStorageError = error;
+          setSyncStatus(storageRecoveryMessage(error), 'error');
+        }
+      }
+      applyDashboardPrefs();
+      renderDashboard();
+    });
     applyDashboardPrefs();
   }
 
@@ -1724,10 +1969,14 @@
       reader.onload = async ev => {
         try {
           const data = JSON.parse(ev.target.result);
-          applyPayload(data, activeProjectId, true);
+          const imported = await applyPayload(data, activeProjectId, true);
+          if (!imported) throw new Error('No active project is available.');
           await saveState();
           alert('Data imported successfully!');
-        } catch (err) { alert('Invalid JSON file.'); }
+        } catch (err) {
+          console.error('Project import failed:', err);
+          alert(`Project import failed: ${err.message || 'invalid JSON file'}`);
+        }
       };
       reader.readAsText(file);
     });
