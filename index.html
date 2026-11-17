@@ -79,6 +79,7 @@
         <div class="flex items-center gap-1.5 text-[0.7rem] flex-wrap">
           <button id="theme-toggle" class="px-2 py-0.5 rounded bg-teal-600/80 hover:bg-teal-600 transition-colors text-[0.65rem] font-medium text-white flex items-center gap-1" type="button"><span id="theme-icon">🌙</span> <span id="theme-text">Dark Mode</span></button>
           <div id="project-tools" class="hidden items-center gap-1.5">
+            <button id="btn-sync" class="px-2 py-0.5 rounded bg-teal-600 hover:bg-teal-700 transition-colors text-[0.65rem] font-semibold text-white" type="button" aria-label="Sync project data">Sync now</button>
             <button id="btn-export" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">JSON</button>
             <button id="btn-export-csv" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">CSV</button>
             <button id="btn-import" class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-colors text-[0.65rem] font-medium" type="button">Import</button>
@@ -395,6 +396,7 @@
   const LS_DASHBOARD_PREFS = 'axon_dashboard_prefs_v1';
   const LS_THEME = 'axon_theme_v1';
   const LS_PROJECTS = 'axon_projects_v1';
+  const LS_DIRTY = 'axon_project_dirty_v1';
   const LEGACY_PROJECT_ID = 'main';
 
   const $ = id => document.getElementById(id);
@@ -466,6 +468,7 @@
   let projects = [];
   let realtimeChannel = null;
   let realtimeStatus = 'CONNECTING';
+  let isSyncing = false;
   let ganttZoomLevel = 100;
   let dashboardPrefs = {};
   let isApplyingRemoteUpdate = false;
@@ -529,9 +532,36 @@
 
   function setSyncStatus(message, state = 'normal') {
     const status = $('sync-status');
-    if (!status) return;
-    status.textContent = message;
-    status.className = `text-[0.65rem] ${state === 'success' ? 'text-emerald-300' : state === 'error' ? 'text-red-300' : state === 'local' ? 'text-amber-300' : 'text-slate-300'}`;
+    if (status) {
+      status.textContent = message;
+      status.className = `text-[0.65rem] ${state === 'success' ? 'text-emerald-300' : state === 'error' ? 'text-red-300' : state === 'local' ? 'text-amber-300' : 'text-slate-300'}`;
+    }
+    const button = $('btn-sync');
+    if (button) {
+      button.disabled = state === 'syncing';
+      button.textContent = state === 'syncing' ? 'Syncing…' : 'Sync now';
+      button.setAttribute('aria-busy', state === 'syncing' ? 'true' : 'false');
+    }
+  }
+
+  function isBrowserOnline() {
+    return typeof navigator === 'undefined' || navigator.onLine !== false;
+  }
+
+  function hasPendingChanges(projectId = activeProjectId) {
+    return !!projectId && localStorage.getItem(projectStorageKey(LS_DIRTY, projectId)) === '1';
+  }
+
+  function markPendingChanges(projectId = activeProjectId) {
+    if (projectId) localStorage.setItem(projectStorageKey(LS_DIRTY, projectId), '1');
+  }
+
+  function clearPendingChanges(projectId) {
+    localStorage.removeItem(projectStorageKey(LS_DIRTY, projectId));
+  }
+
+  function markOfflineStatus() {
+    if (activeProjectId) setSyncStatus('Offline · changes are saved on this device', 'local');
   }
 
   function setCloudSyncedStatus() {
@@ -602,6 +632,20 @@
   async function loadProjectDirectory(initializeMissingMain = false) {
     const localProjects = readLocalProjects();
     const listStatus = $('project-list-status');
+    if (!isBrowserOnline()) {
+      projects = mergeProjectLists(localProjects, []);
+      if (!projects.some(project => project.id === LEGACY_PROJECT_ID)) {
+        projects = mergeProjectLists([{ id: LEGACY_PROJECT_ID, name: 'Prem residence' }], projects);
+      }
+      if (initializeMissingMain && !localStorage.getItem(projectStorageKey(LS_KEY, LEGACY_PROJECT_ID))) {
+        loadState(LEGACY_PROJECT_ID);
+        saveLocalState(LEGACY_PROJECT_ID);
+      }
+      saveProjectDirectory();
+      if (listStatus) listStatus.textContent = 'Offline · showing projects saved on this device.';
+      renderProjectList();
+      return false;
+    }
     if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) {
       projects = mergeProjectLists(localProjects, []);
       if (!projects.some(project => project.id === LEGACY_PROJECT_ID)) {
@@ -614,7 +658,7 @@
       saveProjectDirectory();
       if (listStatus) listStatus.textContent = 'Cloud sync is unavailable; projects are stored on this device.';
       renderProjectList();
-      return;
+      return false;
     }
 
     try {
@@ -648,6 +692,7 @@
       saveProjectDirectory();
       if (listStatus) listStatus.textContent = 'Cloud is connected. Projects saved locally during an outage will retry sync when opened.';
       renderProjectList();
+      return true;
     } catch (err) {
       console.warn('Project list sync error:', err);
       projects = mergeProjectLists(localProjects, []);
@@ -659,41 +704,61 @@
         saveLocalState(LEGACY_PROJECT_ID);
       }
       saveProjectDirectory();
-      if (listStatus) listStatus.textContent = 'Could not load shared projects. Local projects remain available on this device.';
+      if (listStatus) listStatus.textContent = `Could not load shared projects (${err.message || 'check Supabase access'}). Local projects remain available on this device.`;
       renderProjectList();
+      return false;
     }
   }
 
   async function saveState() {
     saveLocalState();
-    if (!isApplyingRemoteUpdate) await saveCloudState();
+    if (!isApplyingRemoteUpdate) {
+      markPendingChanges();
+      await saveCloudState();
+    }
   }
 
   async function saveCloudState() {
     if (!activeProjectId) return false;
+    if (!isBrowserOnline()) {
+      markOfflineStatus();
+      return false;
+    }
     if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) {
       setSyncStatus('Saved on this device only', 'local');
       return false;
     }
-    setSyncStatus('Syncing…');
+    const projectId = activeProjectId;
+    const payload = collectPayload();
+    setSyncStatus('Syncing…', 'syncing');
     try {
       const { error } = await supabaseClient.from('project_data').upsert({
-        id: activeProjectId,
-        payload: collectPayload(),
+        id: projectId,
+        payload,
         updated_at: new Date().toISOString()
       });
       if (error) throw error;
-      setCloudSyncedStatus();
+      if (JSON.stringify(payload) !== JSON.stringify(collectPayload()) && activeProjectId === projectId) {
+        markPendingChanges(projectId);
+        return saveCloudState();
+      }
+      clearPendingChanges(projectId);
+      if (activeProjectId === projectId) setCloudSyncedStatus();
       return true;
     } catch (err) {
       console.warn('Cloud save error:', err);
-      setSyncStatus('Sync failed; saved on this device only', 'error');
+      if (!isBrowserOnline()) markOfflineStatus();
+      else if (activeProjectId === projectId) setSyncStatus(`Sync failed · ${err.message || 'check Supabase access'}`, 'error');
       return false;
     }
   }
 
-  function applyPayload(payload, projectId = activeProjectId) {
-    if (!payload || !projectId || projectId !== activeProjectId) return;
+  function applyPayload(payload, projectId = activeProjectId, allowPendingChanges = false) {
+    if (!payload || !projectId || projectId !== activeProjectId) return false;
+    if (hasPendingChanges(projectId) && !allowPendingChanges) {
+      setSyncStatus('Local changes pending · sync to upload', 'local');
+      return false;
+    }
     expenses = Array.isArray(payload.expenses) ? payload.expenses : [];
     categories = Array.isArray(payload.categories) ? payload.categories : structuredClone(defaultCategories);
     receipts = Array.isArray(payload.receipts) ? payload.receipts : [];
@@ -707,27 +772,78 @@
     isApplyingRemoteUpdate = false;
     populateCategorySelects();
     refreshAllViews();
+    return true;
   }
 
   async function loadCloudState(projectId) {
+    if (!isBrowserOnline()) {
+      markOfflineStatus();
+      return false;
+    }
     if (!supabaseClient || SUPABASE_ANON_KEY.includes('PASTE_YOUR')) {
       setSyncStatus('Saved on this device only', 'local');
-      return;
+      return false;
+    }
+    if (hasPendingChanges(projectId)) {
+      if (activeProjectId === projectId) return saveCloudState();
+      return false;
     }
     try {
       const { data, error } = await supabaseClient.from('project_data').select('payload').eq('id', projectId).maybeSingle();
       if (error) throw error;
       if (activeProjectId !== projectId) return;
       if (data && data.payload && Object.keys(data.payload).length > 0) {
-        applyPayload(data.payload, projectId);
+        const applied = applyPayload(data.payload, projectId);
+        if (!applied && hasPendingChanges(projectId)) return await saveCloudState();
         setCloudSyncedStatus();
       } else {
-        await saveCloudState();
+        markPendingChanges(projectId);
+        return await saveCloudState();
       }
+      return true;
     } catch (err) {
       console.warn('Cloud load failed:', err);
-      if (activeProjectId === projectId) setSyncStatus('Sync failed; showing local data', 'error');
+      if (!isBrowserOnline()) markOfflineStatus();
+      else if (activeProjectId === projectId) setSyncStatus(`Sync failed · ${err.message || 'check Supabase access'}`, 'error');
+      return false;
     }
+  }
+
+  async function syncNow() {
+    if (!activeProjectId) return false;
+    if (!isBrowserOnline()) {
+      markOfflineStatus();
+      return false;
+    }
+    if (isSyncing) return false;
+    const projectId = activeProjectId;
+    isSyncing = true;
+    setSyncStatus('Syncing…', 'syncing');
+    try {
+      const directorySynced = await loadProjectDirectory();
+      if (activeProjectId !== projectId) return false;
+      if (!directorySynced && supabaseClient) {
+        setSyncStatus('Sync failed · could not load shared projects', 'error');
+        return false;
+      }
+      return await loadCloudState(projectId);
+    } finally {
+      isSyncing = false;
+      if (activeProjectId && $('btn-sync')) {
+        const status = $('sync-status')?.textContent || '';
+        if (status === 'Syncing…') setSyncStatus('Sync stopped · try again', 'error');
+        else $('btn-sync').disabled = false;
+      }
+    }
+  }
+
+  function handleConnectionChange() {
+    if (!isBrowserOnline()) {
+      markOfflineStatus();
+      return;
+    }
+    if (activeProjectId) syncNow();
+    else loadProjectDirectory(true);
   }
 
   function showProjectsHome() {
@@ -800,6 +916,7 @@
         alert('The project was created on this device, but could not be shared. Check the Supabase table permissions and connection.');
       }
     }
+    if (!cloudSaved) markPendingChanges(project.id);
     projects = mergeProjectLists([...projects, project], []);
     saveProjectDirectory();
     activeProjectId = project.id;
@@ -1344,6 +1461,7 @@
 
   function bindEvents() {
     $('theme-toggle')?.addEventListener('click', toggleTheme);
+    $('btn-sync')?.addEventListener('click', syncNow);
     $('back-to-projects')?.addEventListener('click', showProjectsHome);
     $('create-project-form')?.addEventListener('submit', async e => {
       e.preventDefault();
@@ -1606,7 +1724,7 @@
       reader.onload = async ev => {
         try {
           const data = JSON.parse(ev.target.result);
-          applyPayload(data);
+          applyPayload(data, activeProjectId, true);
           await saveState();
           alert('Data imported successfully!');
         } catch (err) { alert('Invalid JSON file.'); }
@@ -1630,9 +1748,9 @@
   });
 
   window.addEventListener('online', async () => {
-    await loadProjectDirectory();
-    if (activeProjectId) await loadCloudState(activeProjectId);
+    handleConnectionChange();
   });
+  window.addEventListener('offline', markOfflineStatus);
 </script>
 </body>
 </html>
